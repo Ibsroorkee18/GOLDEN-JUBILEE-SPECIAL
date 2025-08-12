@@ -1,14 +1,14 @@
+/* Game Boy–style skin + peak mobile controls (no settings needed) */
 :root{
-  /* Tweakables */
-  --ui-scale: 1.3;                /* overall control scale for phones */
-  --ui-opacity: 0.96;             /* control bar opacity */
-  --zone-width: min(64vw, 78vmin);/* width of the touch zone */
-  --zone-height: min(64vw, 78vmin);
-  --ring-size: min(46vmin, 60vw); /* max diameter of the visible ring */
-  --knob-size: 34%;               /* knob radius relative to ring */
-  --btn-size: clamp(64px, 18vmin, 110px);
+  /* defaults tuned for phones */
+  --ui-scale: 1.4;                 /* overall control size */
+  --ui-opacity: 0.98;              /* control bar opacity */
+  --zone-size: min(60vmin, 70vw);  /* touch zone square */
+  --ring-size: min(46vmin, 58vw);  /* circle inside zone */
+  --knob-size: 36%;                /* knob diameter relative to ring */
+  --btn-size: clamp(72px, 18vmin, 120px);
 
-  /* Game Boy-ish colors */
+  /* Game Boy vibe */
   --body: #bfc5a7;
   --screen: #2b3a1a;
   --screen-glow: #3d5226;
@@ -22,22 +22,30 @@
   --safe-top: env(safe-area-inset-top, 10px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;overscroll-behavior:none;background:#0b0e11;color:#e8f0f2;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans,sans-serif}
+html,body{
+  height:100%;margin:0;overscroll-behavior:none;background:#0b0e11;color:#e8f0f2;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans,sans-serif;
+}
 #wrap{position:fixed;inset:0;display:grid;grid-template-rows:1fr auto}
 
-/* Stage / game frame */
+/* Stage / Game frame with bezel */
 #stage{position:relative;overflow:hidden;background:var(--body)}
-.bezel{position:absolute;inset:0;display:grid;place-items:center;padding:clamp(8px,2.5vmin,18px);
-  background: radial-gradient(180vmax 120vmax at 30% -20%, #d4d9be 10%, var(--body) 60%, #aab094 100%)}
-#gameframe{width:100%;height:100%;border:0;background:linear-gradient(180deg,var(--screen-glow),var(--screen));
-  border-radius: clamp(8px, 1.6vmin, 14px); box-shadow: 0 0 0 4px rgba(0,0,0,0.15) inset, 0 14px 26px rgba(0,0,0,0.35)}
+.bezel{
+  position:absolute;inset:0;display:grid;place-items:center;padding:clamp(8px,2.5vmin,18px);
+  background: radial-gradient(180vmax 120vmax at 30% -20%, #d4d9be 10%, var(--body) 60%, #aab094 100%);
+}
+#gameframe{
+  width:100%;height:100%;border:0;background:linear-gradient(180deg,var(--screen-glow),var(--screen));
+  border-radius: clamp(8px, 1.6vmin, 14px);
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.15) inset, 0 14px 26px rgba(0,0,0,0.35);
+}
 
 /* Starter overlay */
 #starter{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.78),rgba(0,0,0,.92));z-index:10}
 #starter .card{padding:18px 22px;text-align:center;border-radius:18px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(6px)}
 #starter .title{font-weight:800;margin-bottom:6px}
 #starter .sub{opacity:.8;margin-bottom:12px}
+#starter .row{display:flex;gap:10px;justify-content:center}
 .btn{display:inline-grid;place-items:center;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;user-select:none}
 .btn.pill{padding:12px 20px;font-weight:700}
 .btn.ghost{background:rgba(255,255,255,0.08)}
@@ -48,33 +56,36 @@ html,body{height:100%;margin:0;overscroll-behavior:none;background:#0b0e11;color
 #topbar .btn{padding:6px 10px;border-radius:999px}
 
 /* Control bar */
-#controls{position:relative;padding:14px 16px calc(22px + var(--safe-bottom));
+#controls{
+  position:relative;
+  padding:14px 16px calc(22px + var(--safe-bottom));
   background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.25));
-  touch-action:none}
+  touch-action:none;
+}
 #controlInner{
   display:flex;justify-content:center;align-items:flex-end;
-  gap: clamp(16px, 4vw, 42px);
+  gap: clamp(18px, 4vw, 44px);
   transform: scale(var(--ui-scale)); transform-origin: bottom center;
-  opacity: var(--ui-opacity); transition: transform .15s ease, opacity .15s ease;
+  opacity: var(--ui-opacity);
+  transition: transform .15s ease, opacity .15s ease;
 }
 
-/* Touchpad zone */
+/* Touch zone (square) with circular play area */
 .touchzone{
-  position:relative; width:var(--zone-width); height:var(--zone-height);
-  max-width:580px; max-height:580px; border-radius:24px;
+  position:relative;width:var(--zone-size);height:var(--zone-size);max-width:620px;max-height:620px;border-radius:24px;
   background: var(--glass-strong); border:1px solid var(--border); backdrop-filter: blur(6px);
   box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35);
   overflow:hidden;
 }
 .touchzone .ring{
-  position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
+  position:absolute;width:var(--ring-size);height:var(--ring-size);border-radius:50%;
   border:1px solid var(--border);
   background: rgba(255,255,255,0.06);
   left: 50%; top: 50%; transform: translate(-50%,-50%);
   pointer-events:none;
 }
 .touchzone .knob{
-  position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
+  position:absolute;width:var(--ring-size);height:var(--ring-size);border-radius:50%;
   left: 50%; top: 50%; transform: translate(-50%,-50%);
   pointer-events:none;
 }
@@ -93,19 +104,27 @@ html,body{height:100%;margin:0;overscroll-behavior:none;background:#0b0e11;color
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
   background: rgba(255,255,255,0.14);
 }
-.actions .full{width:var(--btn-size); height:calc(var(--btn-size) * .6); border-radius:14px}
+.actions .full{
+  width:var(--btn-size); height:calc(var(--btn-size) * .6); border-radius:14px;
+}
+/* Slightly different tint for reset to stand out */
+.actions .reset{
+  background: rgba(255, 120, 120, 0.18);
+  border-color: rgba(255,255,255,0.35);
+}
 
-/* Settings dialog */
-dialog#settings{width:min(560px, 94vw); border:1px solid var(--border); border-radius:16px;
-  padding:16px; background:var(--glass); color:#fff; backdrop-filter:blur(8px)}
-dialog::backdrop{background:rgba(0,0,0,.5)}
-#settings h3{margin:0 0 10px 0}
-#settings .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
-#settings input[type="range"], #settings select{width:54%}
-#settings .buttons{justify-content:flex-end}
-#settings .btn{padding:8px 14px}
-#settings .btn.ghost{background:rgba(255,255,255,0.08)}
-#settings .hint{opacity:.75;margin-top:8px;font-size:.9em}
+/* Utility */
+.hidden{ display:none !important; }
 
-/* Left-handed layout */
-.lefty #controlInner{flex-direction: row-reverse}
+/* Toast */
+#toast{
+  position:absolute;left:50%;top:var(--safe-top);transform:translateX(-50%);
+  background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+#toast.show{opacity:1}
+
+/* Orientation tweaks */
+@media (orientation: landscape){
+  :root{ --ui-scale: 1.2; }
+}

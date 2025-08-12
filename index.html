@@ -13,86 +13,47 @@
         <iframe id="gameframe" allow="autoplay; fullscreen"></iframe>
       </div>
 
+      <!-- Starter: mobile audio/focus -->
       <div id="starter" role="dialog" aria-modal="true">
         <div class="card">
           <div class="title">Ready?</div>
           <div class="sub">Tap once to focus & enable audio</div>
-          <button id="startBtn" class="btn pill">Tap to Start</button>
+          <div class="row">
+            <button id="startBtn" class="btn pill">Tap to Start</button>
+            <button id="goFull" class="btn pill ghost" type="button">Fullscreen</button>
+          </div>
         </div>
       </div>
 
+      <!-- Top HUD -->
       <div id="topbar">
+        <button id="landscape" class="btn ghost" title="Lock landscape">⟲</button>
         <button id="toggleControls" class="btn ghost" aria-pressed="false" title="Hide/Show Controls">🎮</button>
-        <button id="openSettings" class="btn ghost" title="Settings">⚙️</button>
       </div>
+
+      <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
+    <!-- Controls -->
     <div id="controls" aria-label="Touch Controls">
       <div id="controlInner" class="layout-center">
-        <!-- Touchpad zone (left) -->
+        <!-- Peak touchpad (dynamic origin + smoothing + smart snap) -->
         <div class="touchzone" id="touchzone" aria-label="Touchpad">
           <div class="ring" id="ring"></div>
           <div class="knob" id="knob"></div>
         </div>
 
-        <!-- Action buttons (right) -->
+        <!-- Actions -->
         <div class="actions">
-          <button class="btn action A" data-key="Space" aria-label="SPACE">SPACE</button>
+          <button class="btn action A" data-key="Space" aria-label="SPACE" id="spaceBtn">SPACE</button>
           <button class="btn action B" data-key="Enter" aria-label="ENTER">ENTER</button>
           <button class="btn action full" id="fullscreenBtn" aria-label="Fullscreen">⤢</button>
+          <button class="btn action full reset" id="resetBtn" aria-label="Reset">RESET</button>
         </div>
       </div>
     </div>
   </div>
 
-  <dialog id="settings">
-    <form method="dialog">
-      <h3>Controls</h3>
-      <label class="row">
-        <span>Mode</span>
-        <select id="mode">
-          <option value="touchpad">Touchpad (dynamic origin)</option>
-          <option value="fixed">Fixed stick (D‑Pad style)</option>
-        </select>
-      </label>
-
-      <label class="row">
-        <span>Direction snap</span>
-        <select id="snap">
-          <option value="off">Off (free 8‑way with hysteresis)</option>
-          <option value="four">4‑way (no diagonals)</option>
-          <option value="eight">8‑way (diagonals allowed)</option>
-        </select>
-      </label>
-
-      <label class="row">
-        <span>Left‑handed layout</span>
-        <input id="lefty" type="checkbox" />
-      </label>
-
-      <label class="row">
-        <span>UI size</span>
-        <input id="uisize" type="range" min="0.9" max="1.7" step="0.05" />
-      </label>
-
-      <label class="row">
-        <span>UI opacity</span>
-        <input id="uiopacity" type="range" min="0.2" max="1.0" step="0.05" />
-      </label>
-
-      <label class="row">
-        <span>Vibration</span>
-        <input id="vibrate" type="checkbox" />
-      </label>
-
-      <div class="row buttons">
-        <button class="btn pill">Close</button>
-        <button id="resetPrefs" class="btn pill ghost" type="button">Reset</button>
-      </div>
-      <p class="hint">Tip: keep <code>index.html</code> and your game in the same folder (same origin). Use <code>?src=YourGame.html</code> if not named <code>game.html</code>.</p>
-    </form>
-  </dialog>
-
-  <script defer src="wrapper.js"></script>
+  <script src="wrapper.js" defer></script>
 </body>
 </html>
