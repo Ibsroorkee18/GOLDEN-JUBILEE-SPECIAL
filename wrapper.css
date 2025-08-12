@@ -1,24 +1,27 @@
-/* Landscape-only, Game Boy vibe, fullscreen-only controls */
+/* Phone-first, landscape-only, fullscreen-only controls */
 :root{
-  /* tuned defaults */
-  --ui-scale: 1.35;                 /* overall control size */
-  --ui-opacity: 0.98;               /* control opacity */
-  --zone-size: min(54vmin, 50vw);   /* touchpad base size */
+  /* tuned for thumbs */
+  --ui-scale: 1.45;                 /* overlay scale */
+  --ui-opacity: 0.92;               /* overlay opacity slider target */
+  --zone-size: min(54vmin, 52vw);   /* touchpad base size */
   --ring-size: min(44vmin, 42vw);   /* inner circle */
   --knob-size: 36%;
-  --btn-size: clamp(70px, 16vmin, 120px);
+  --btn-size: clamp(56px, 13vmin, 84px); /* small START */
+  --btn-radius: 16px;
 
-  /* Pad placement & scale */
-  --pad-scale: 1;                   /* 0.9..1.4 */
-  --pad-offset-x: 0vw;              /* -20vw..20vw */
-  --pad-offset-y: 0vh;              /* -12vh..12vh */
+  /* pad placement & scale */
+  --pad-scale: 1.1;                 /* 0.9..1.5 */
+  --pad-offset-x: 0vw;              /* -20..20 */
+  --pad-offset-y: 0vh;              /* -12..12 */
 
-  /* Game Boy vibe */
-  --body: #bfc5a7;  --screen: #2b3a1a;  --screen-glow: #3d5226;
+  /* palette (clean, not playful) */
+  --body: #0f1115;                  /* bezel fallback bg */
+  --screen: #10161a;
+  --screen-glow: #0b1216;
 
-  --glass: rgba(18,18,18,0.45);
-  --glass-strong: rgba(18,18,18,0.72);
-  --border: rgba(255,255,255,0.28);
+  --glass: rgba(18,18,18,0.55);
+  --glass-strong: rgba(18,18,18,0.75);
+  --border: rgba(255,255,255,0.24);
   --active: rgba(255,255,255,0.5);
 
   --safe-bottom: env(safe-area-inset-bottom, 10px);
@@ -26,12 +29,12 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{
-  height:100%;margin:0;overscroll-behavior:none;background:#0b0e11;color:#e8f0f2;
+  height:100%;margin:0;overscroll-behavior:none;background:#000;color:#e8f0f2;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans,sans-serif;
 }
 #wrap{position:fixed;inset:0;display:grid;grid-template-rows:1fr auto}
 
-/* Gate overlay (shown when not fullscreen or not landscape) */
+/* Gate (block until fullscreen + landscape) */
 #gate{
   position:fixed; inset:0; display:grid; place-items:center; z-index:99999;
   background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.85), rgba(0,0,0,.95));
@@ -47,68 +50,64 @@ html,body{
 .btn.ghost{background:rgba(255,255,255,0.08)}
 .btn:active,.btn.active{background:var(--active);border-color:#fff}
 
-/* Stage / Game frame with bezel (hidden behind gate) */
-#stage{position:relative;overflow:hidden;background:var(--body)}
+/* Stage (game always full) */
+#stage{position:relative;overflow:hidden;background:#000}
 .bezel{
-  position:absolute; inset:0; display:grid; place-items:center; padding:clamp(8px,2.5vmin,18px);
-  background: radial-gradient(180vmax 120vmax at 30% -20%, #d4d9be 10%, var(--body) 60%, #aab094 100%);
+  position:absolute; inset:0; display:grid; place-items:center; padding:0;
+  background: var(--body);
 }
 #gameframe{
   width:100%; height:100%; border:0; background:linear-gradient(180deg,var(--screen-glow),var(--screen));
-  border-radius: clamp(8px, 1.6vmin, 14px);
-  box-shadow: 0 0 0 4px rgba(0,0,0,0.15) inset, 0 14px 26px rgba(0,0,0,0.35);
 }
 
-/* Top bar (only visible in fullscreen) */
+/* Top bar (fullscreen only) */
 #topbar{
   position:absolute; right:10px; top:var(--safe-top);
-  display:flex; gap:10px; z-index:5; opacity:1; transition:opacity .15s ease;
+  display:flex; gap:10px; z-index:5;
 }
 
-/* Controls bar (landscape; fullscreen only) */
+/* Controls overlay */
 #controls{
-  position:relative;
+  position:fixed; left:0; right:0; bottom:0; z-index:4;
   padding:12px 16px calc(16px + var(--safe-bottom));
-  background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.25));
+  background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.25));
   touch-action:none;
 }
 #controlInner{
   display:flex; align-items:flex-end; justify-content:space-between;
-  gap: clamp(16px, 3.5vw, 40px);
+  gap: clamp(14px, 4vw, 40px);
   transform: scale(var(--ui-scale)); transform-origin: bottom center;
   opacity: var(--ui-opacity); transition: transform .15s ease, opacity .15s ease;
 }
-.leftActions { display:grid; align-items:end; }
-.leftActions .action{
+
+/* Left small SPACE */
+.leftActions{ display:grid; align-items:end; }
+.action.small{
   width:var(--btn-size); height:var(--btn-size);
-  font-size: clamp(18px, 5.5vmin, 24px); font-weight:900;
+  font-size: clamp(14px, 4.5vmin, 20px); font-weight:900; border-radius: var(--btn-radius);
+  background: rgba(255,255,255,0.14); border:1px solid var(--border);
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
-  background: rgba(255,255,255,0.14);
 }
 
-/* Right pad dock: positionable + scalable */
-.rightPad { position:relative; min-width: min(50vw, 60vmin); display:grid; justify-items:end; }
+/* Right touchpad (positionable + scalable) */
+.rightPad{ position:relative; min-width:min(50vw, 60vmin); display:grid; justify-items:end; }
 .padDock{
-  transform:
-    translate(var(--pad-offset-x), var(--pad-offset-y))
-    scale(var(--pad-scale));
+  transform: translate(var(--pad-offset-x), var(--pad-offset-y)) scale(var(--pad-scale));
   transform-origin: bottom right;
 }
-
-/* Touchpad */
-.touchpad{ position:relative; width:var(--zone-size); height:var(--zone-size); border-radius:22px;
+.touchpad{
+  position:relative; width:var(--zone-size); height:var(--zone-size); border-radius:20px;
   background: var(--glass-strong); border:1px solid var(--border); backdrop-filter: blur(6px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35);
-  overflow:hidden;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35); overflow:hidden;
 }
 .touchpad .ring{
   position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
   border:1px solid var(--border); background: rgba(255,255,255,0.06);
-  left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events:none;
+  left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
 }
 .touchpad .knob{
   position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
-  left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events:none;
+  left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
 }
 .touchpad .knob::after{
   content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
@@ -116,21 +115,6 @@ html,body{
   background: rgba(255,255,255,0.14); border:1px solid var(--border);
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
-
-/* D-Pad */
-.dpad{
-  position:relative; width:var(--zone-size); height:var(--zone-size);
-  background: var(--glass-strong); border:1px solid var(--border); border-radius:22px; backdrop-filter: blur(6px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35);
-}
-.dpad .seg{ position:absolute; background:rgba(255,255,255,0.12); border:1px solid var(--border); border-radius:16px; }
-.dpad .seg.up{    left:30%; top:6%; width:40%; height:34%;}
-.dpad .seg.down{  left:30%; bottom:6%; width:40%; height:34%;}
-.dpad .seg.left{  top:33%; left:6%; width:34%; height:40%;}
-.dpad .seg.right{ top:33%; right:6%; width:34%; height:40%;}
-.dpad .seg:active, .dpad .seg.active{ background:var(--active); border-color:#fff }
-.dpad .nub{ position:absolute; left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:50%;
-  background: rgba(255,255,255,0.10); border:1px dashed rgba(255,255,255,0.18);}
 
 /* Toast */
 #toast{
@@ -154,7 +138,8 @@ dialog::backdrop{ background:rgba(0,0,0,.5) }
 #settings .btn.ghost{ background:rgba(255,255,255,0.08) }
 #settings .hint{ opacity:.75; margin-top:8px; font-size:.9em }
 
-/* Hide everything if not landscape */
+/* If portrait, blur but gate still blocks everything */
 @media (orientation:portrait){
   #stage, #controls, #topbar { filter: blur(2px); pointer-events:none; }
 }
+.hidden{ display:none !important; }

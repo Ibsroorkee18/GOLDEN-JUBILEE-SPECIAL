@@ -8,20 +8,19 @@
 </head>
 <body>
   <div id="wrap">
-
-    <!-- Fullscreen + Landscape gate (blocks everything until OK) -->
+    <!-- Gate: MUST be fullscreen + landscape -->
     <div id="gate">
       <div class="gate-card">
-        <div class="gate-title">Best in fullscreen landscape</div>
-        <div class="gate-sub">Tap below to enter fullscreen and lock landscape.</div>
+        <div class="gate-title">Rotate & go fullscreen</div>
+        <div class="gate-sub">This game runs only in fullscreen landscape.</div>
         <div class="gate-actions">
-          <button id="enterFS" class="btn pill">Go Fullscreen</button>
+          <button id="enterFS" class="btn pill">Enter Fullscreen</button>
         </div>
-        <div class="gate-hint">If it doesn’t lock, rotate your phone horizontally.</div>
+        <div class="gate-hint">If landscape lock fails, rotate your phone horizontally.</div>
       </div>
     </div>
 
-    <!-- Game area -->
+    <!-- Game fills the screen -->
     <div id="stage" aria-hidden="true">
       <div class="bezel">
         <iframe
@@ -31,65 +30,48 @@
         ></iframe>
       </div>
 
-      <!-- Top HUD (only seen in fullscreen) -->
+      <!-- Top-right HUD (fullscreen only) -->
       <div id="topbar">
         <button id="landscape" class="btn ghost" title="Lock landscape">⟲</button>
         <button id="fullscreenBtn" class="btn ghost" title="Toggle fullscreen">⤢</button>
         <button id="openSettings" class="btn ghost" title="Settings">⚙️</button>
+        <button id="resetBtn" class="btn ghost" title="Reset game & restore START">RESET</button>
       </div>
 
       <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
-    <!-- Controls (landscape-only, fullscreen-only) -->
-    <div id="controls" aria-label="Touch Controls" aria-hidden="true">
+    <!-- Controls overlay (fullscreen + landscape only) -->
+    <div id="controls" aria-hidden="true" aria-label="Touch Controls">
       <div id="controlInner">
-        <!-- LEFT: SPACE -->
+        <!-- LEFT: small SPACE -->
         <div class="leftActions">
-          <button class="btn action A" id="spaceBtn" data-key="Space" aria-label="SPACE">SPACE</button>
+          <button class="btn action small A" id="spaceBtn" data-key="Space" aria-label="SPACE">SPACE</button>
         </div>
 
-        <!-- RIGHT: Pad dock (Touchpad / D-Pad) -->
+        <!-- RIGHT: Touchpad (touchpad only, diagonals allowed) -->
         <div class="rightPad">
           <div class="padDock" id="padDock">
-            <!-- Touchpad (default) -->
             <div class="touchpad" id="touchpad">
               <div class="ring" id="ring"></div>
               <div class="knob" id="knob"></div>
-            </div>
-            <!-- D-Pad (switchable in Settings) -->
-            <div class="dpad" id="dpad" hidden>
-              <button class="seg up"    data-key="ArrowUp"    aria-label="Up"></button>
-              <button class="seg left"  data-key="ArrowLeft"  aria-label="Left"></button>
-              <button class="seg right" data-key="ArrowRight" aria-label="Right"></button>
-              <button class="seg down"  data-key="ArrowDown"  aria-label="Down"></button>
-              <div class="nub"></div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Settings (only accessible in fullscreen) -->
+    <!-- Settings -->
     <dialog id="settings">
       <form method="dialog">
         <h3>Controls</h3>
 
         <label class="row">
-          <span>Mode</span>
-          <select id="mode">
-            <option value="touchpad">Touchpad (smooth) — default</option>
-            <option value="dpad">D-Pad (4-way)</option>
-          </select>
-        </label>
-
-        <label class="row">
           <span>Snap</span>
           <select id="snap">
+            <option value="eight">8-way (diagonals) — default</option>
             <option value="smart">Smart (dominant axis)</option>
-            <option value="four">4-way</option>
-            <option value="eight">8-way</option>
-            <option value="off">Off</option>
+            <option value="off">Off (free + hysteresis)</option>
           </select>
         </label>
 
@@ -99,22 +81,22 @@
         </label>
 
         <label class="row">
-          <span>UI size</span>
-          <input id="uisize" type="range" min="1.0" max="1.7" step="0.05" />
-        </label>
-
-        <label class="row">
           <span>UI opacity</span>
           <input id="uiopacity" type="range" min="0.4" max="1.0" step="0.05" />
         </label>
 
         <label class="row">
-          <span>Pad size</span>
-          <input id="padscale" type="range" min="0.9" max="1.4" step="0.05" />
+          <span>UI size</span>
+          <input id="uisize" type="range" min="1.0" max="1.8" step="0.05" />
         </label>
 
         <label class="row">
-          <span>Pad X (←/→)</span>
+          <span>Pad size</span>
+          <input id="padscale" type="range" min="0.9" max="1.5" step="0.05" />
+        </label>
+
+        <label class="row">
+          <span>Pad X (→/←)</span>
           <input id="padx" type="range" min="-20" max="20" step="1" />
         </label>
 
@@ -132,10 +114,9 @@
           <button class="btn pill">Close</button>
           <button id="resetPrefs" class="btn pill ghost" type="button">Reset</button>
         </div>
-        <p class="hint">Keep this file and your game on the same origin so input works.</p>
+        <p class="hint">Keep this and your game on the same origin so input works.</p>
       </form>
     </dialog>
-
   </div>
 
   <script src="wrapper.js" defer></script>

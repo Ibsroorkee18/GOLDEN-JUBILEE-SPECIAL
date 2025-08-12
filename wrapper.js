@@ -9,6 +9,7 @@
   const controls = document.getElementById('controls');
   const openSettings = document.getElementById('openSettings');
   const settingsDlg = document.getElementById('settings');
+  const resetBtn = document.getElementById('resetBtn');
   const landscapeBtn = document.getElementById('landscape');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   const toast = document.getElementById('toast');
@@ -19,10 +20,8 @@
   const touchpad = document.getElementById('touchpad');
   const ring = document.getElementById('ring');
   const knob = document.getElementById('knob');
-  const dpad = document.getElementById('dpad');
 
   // Settings inputs
-  const modeSel = document.getElementById('mode');
   const snapSel = document.getElementById('snap');
   const sensInp = document.getElementById('sensitivity');
   const uiSizeInp = document.getElementById('uisize');
@@ -38,9 +37,9 @@
   frame.src = params.get('src') || 'game.html';
 
   // ---------- Helpers ----------
-  function isFullscreen(){
-    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
-  }
+  const isFullscreen = () =>
+    !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+
   async function enterFullscreen(){
     try {
       const el = document.documentElement;
@@ -55,13 +54,11 @@
       toastMsg('Landscape locked');
     } catch(e){}
   }
-  function isLandscape(){
-    return window.matchMedia('(orientation: landscape)').matches || (innerWidth > innerHeight);
-  }
+  const isLandscape = () => window.matchMedia('(orientation: landscape)').matches || (innerWidth > innerHeight);
+
   function updateGate(){
     const ok = isFullscreen() && isLandscape();
     gate.classList.toggle('hidden', ok);
-    // when allowed, enable stage + controls
     document.getElementById('stage').setAttribute('aria-hidden', ok ? 'false' : 'true');
     controls.setAttribute('aria-hidden', ok ? 'false' : 'true');
     topbar.style.visibility = ok ? 'visible' : 'hidden';
@@ -77,26 +74,6 @@
     toast._t = setTimeout(()=>toast.classList.remove('show'), 1400);
   }
   function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch(e){} }
-
-  // ---------- Fullscreen / orientation gate ----------
-  enterFS.addEventListener('click', async () => {
-    await enterFullscreen();
-    await tryLockLandscape();
-    updateGate();
-    focusGame();
-  });
-  fullscreenBtn.addEventListener('click', async () => {
-    if (isFullscreen()) {
-      try { await document.exitFullscreen?.(); } catch(e){}
-    } else {
-      await enterFullscreen();
-    }
-    updateGate();
-  });
-  landscapeBtn.addEventListener('click', tryLockLandscape);
-
-  // Show gate initially
-  updateGate();
 
   // ---------- Key injection ----------
   const keyMap = {
@@ -131,9 +108,8 @@
       dispatch(doc,'keyup',d); dispatch(frame.contentWindow,'keyup',d);
     } catch(e){}
   }
-
-  // On-screen buttons
-  function bindDataKey(el){
+  // Bind SPACE
+  (function bindDataKey(el){
     const name = el.getAttribute('data-key'); let active=false;
     const activate = e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
     const deactivate = e=>{ if(!active) return; e && (e.preventDefault(), e.stopPropagation()); el.classList.remove('active'); active=false; keyUp(name); };
@@ -141,24 +117,37 @@
     window.addEventListener('pointerup', deactivate);
     window.addEventListener('pointercancel', deactivate);
     el.addEventListener('pointerout', e=>{ if(active) deactivate(e); });
+  })(spaceBtn);
+
+  // ---------- SPACE auto-hide after first press ----------
+  let spaceUsed = localStorage.getItem('wrap_space_used') === '1';
+  function updateSpaceVisibility(){
+    spaceBtn.classList.toggle('hidden', spaceUsed);
   }
-  bindDataKey(spaceBtn);
-  dpad.querySelectorAll('[data-key]').forEach(bindDataKey);
+  updateSpaceVisibility();
+
+  // hide after first COMPLETE press
+  spaceBtn.addEventListener('pointerup', () => {
+    if (!spaceUsed) {
+      spaceUsed = true;
+      localStorage.setItem('wrap_space_used','1');
+      updateSpaceVisibility();
+      toastMsg('Start hidden (use RESET to restore)');
+    }
+  });
 
   // ---------- Preferences ----------
   const P = {
-    mode:        localStorage.getItem('wrap_mode') || 'touchpad',
-    snap:        localStorage.getItem('wrap_snap') || 'smart',
+    snap:        localStorage.getItem('wrap_snap') || 'eight',    // eight | smart | off
     sensitivity: parseFloat(localStorage.getItem('wrap_sens') || '1.0'),
-    uiSize:      parseFloat(localStorage.getItem('wrap_ui') || '1.35'),
-    uiOpacity:   parseFloat(localStorage.getItem('wrap_opacity') || '0.98'),
-    padScale:    parseFloat(localStorage.getItem('wrap_padscale') || '1.0'),
+    uiSize:      parseFloat(localStorage.getItem('wrap_ui') || '1.45'),
+    uiOpacity:   parseFloat(localStorage.getItem('wrap_opacity') || '0.92'),
+    padScale:    parseFloat(localStorage.getItem('wrap_padscale') || '1.1'),
     padX:        parseFloat(localStorage.getItem('wrap_padx') || '0'),
     padY:        parseFloat(localStorage.getItem('wrap_pady') || '0'),
     vibrate:     localStorage.getItem('wrap_vibrate') !== '0',
   };
   function savePrefs(){
-    localStorage.setItem('wrap_mode', P.mode);
     localStorage.setItem('wrap_snap', P.snap);
     localStorage.setItem('wrap_sens', String(P.sensitivity));
     localStorage.setItem('wrap_ui', String(P.uiSize));
@@ -169,7 +158,6 @@
     localStorage.setItem('wrap_vibrate', P.vibrate ? '1' : '0');
   }
   function applyPrefsToUI(){
-    modeSel.value = P.mode;
     snapSel.value = P.snap;
     sensInp.value = String(P.sensitivity);
     uiSizeInp.value = String(P.uiSize);
@@ -179,39 +167,15 @@
     padYInp.value = String(P.padY);
     vibrateChk.checked = !!P.vibrate;
 
-    // CSS vars
     document.documentElement.style.setProperty('--ui-scale', String(P.uiSize));
     document.documentElement.style.setProperty('--ui-opacity', String(P.uiOpacity));
     document.documentElement.style.setProperty('--pad-scale', String(P.padScale));
     document.documentElement.style.setProperty('--pad-offset-x', P.padX + 'vw');
     document.documentElement.style.setProperty('--pad-offset-y', P.padY + 'vh');
-
-    // Pad flavor
-    const isTouch = P.mode === 'touchpad';
-    touchpad.hidden = !isTouch;
-    dpad.hidden = isTouch;
-    enableTouchpadListeners(isTouch);
-    enableDpadListeners(!isTouch);
   }
-  function resetDefaults(){
-    P.mode='touchpad'; P.snap='smart'; P.sensitivity=1.0; P.uiSize=1.35; P.uiOpacity=0.98; P.padScale=1.0; P.padX=0; P.padY=0; P.vibrate=true;
-  }
+  applyPrefsToUI();
 
-  // ---------- Settings listeners ----------
-  openSettings.addEventListener('click', () => settingsDlg.showModal());
-  settingsDlg.addEventListener('close', () => focusGame());
-  modeSel.addEventListener('change', e => { P.mode = e.target.value; savePrefs(); applyPrefsToUI(); toastMsg(P.mode === 'touchpad' ? 'Touchpad' : 'D-Pad'); });
-  snapSel.addEventListener('change', e => { P.snap = e.target.value; savePrefs(); toastMsg('Snap: ' + P.snap); });
-  sensInp.addEventListener('input', e => { P.sensitivity = parseFloat(e.target.value||'1'); savePrefs(); });
-  uiSizeInp.addEventListener('input', e => { P.uiSize = parseFloat(e.target.value||'1.35'); savePrefs(); applyPrefsToUI(); });
-  uiOpacityInp.addEventListener('input', e => { P.uiOpacity = parseFloat(e.target.value||'0.98'); savePrefs(); applyPrefsToUI(); });
-  padScaleInp.addEventListener('input', e => { P.padScale = parseFloat(e.target.value||'1'); savePrefs(); applyPrefsToUI(); });
-  padXInp.addEventListener('input', e => { P.padX = parseFloat(e.target.value||'0'); savePrefs(); applyPrefsToUI(); });
-  padYInp.addEventListener('input', e => { P.padY = parseFloat(e.target.value||'0'); savePrefs(); applyPrefsToUI(); });
-  vibrateChk.addEventListener('change', e => { P.vibrate = !!e.target.checked; savePrefs(); });
-  resetPrefs.addEventListener('click', () => { resetDefaults(); savePrefs(); applyPrefsToUI(); toastMsg('Settings reset'); });
-
-  // ---------- Touchpad engine (super smooth) ----------
+  // ---------- Super-smooth touchpad engine ----------
   let tracking=false, pid=null;
   let cx=0, cy=0;              // origin within pad
   let tx=0, ty=0;              // target vector
@@ -222,12 +186,12 @@
   ro.observe(touchpad);
 
   function currentSmoothing(){ // higher sens -> snappier (lower smoothing)
-    const s = P.sensitivity;
+    const s = P.sensitivity;  // 0.6..1.5
     return Math.max(0.14, Math.min(0.34, 0.24 - (s - 1) * 0.08));
   }
   function currentDeadzone(){
     const s = P.sensitivity;
-    const enter = 0.28 / Math.max(0.7, s);
+    const enter = 0.26 / Math.max(0.7, s);     // slightly smaller DZ for diag play
     return { enter, exit: enter * 0.72 };
   }
   function setOrigin(px, py){
@@ -255,45 +219,18 @@
   function setTargetFromEvent(e){ const v = vectorFrom(e.clientX, e.clientY); tx = v.nx; ty = v.ny; }
   function centerTarget(){ tx = 0; ty = 0; }
 
-  function enableTouchpadListeners(enable){
-    if (enable) {
-      touchpad.addEventListener('pointerdown', onPadDown, {passive:false});
-      touchpad.addEventListener('pointermove', onPadMove, {passive:false});
-      touchpad.addEventListener('pointerup', onPadEnd, {passive:false});
-      touchpad.addEventListener('pointercancel', onPadEnd, {passive:false});
-      window.addEventListener('pointerup', onPadEnd, {passive:false});
-    } else {
-      touchpad.removeEventListener('pointerdown', onPadDown);
-      touchpad.removeEventListener('pointermove', onPadMove);
-      touchpad.removeEventListener('pointerup', onPadEnd);
-      touchpad.removeEventListener('pointercancel', onPadEnd);
-      window.removeEventListener('pointerup', onPadEnd);
-    }
-  }
   function onPadDown(e){ tracking=true; pid=e.pointerId; setOrigin(e.clientX,e.clientY); setTargetFromEvent(e); e.preventDefault(); }
   function onPadMove(e){ if(!tracking || e.pointerId!==pid) return; setTargetFromEvent(e); e.preventDefault(); }
   function onPadEnd(e){ if(!tracking || (pid!==null && e.pointerId && e.pointerId!==pid)) return; tracking=false; pid=null; centerTarget(); e.preventDefault(); }
+  touchpad.addEventListener('pointerdown', onPadDown, {passive:false});
+  touchpad.addEventListener('pointermove', onPadMove, {passive:false});
+  touchpad.addEventListener('pointerup', onPadEnd, {passive:false});
+  touchpad.addEventListener('pointercancel', onPadEnd, {passive:false});
+  window.addEventListener('pointerup', onPadEnd, {passive:false});
 
-  // D-Pad listeners
-  function enableDpadListeners(enable){
-    dpad.querySelectorAll('[data-key]').forEach(el => {
-      const clone = el.cloneNode(true);
-      if (enable) {
-        const name = el.getAttribute('data-key'); let active=false;
-        const activate = e=>{ e.preventDefault(); e.stopPropagation(); clone.classList.add('active'); active=true; keyDown(name); };
-        const deactivate = e=>{ if(!active) return; e && (e.preventDefault(), e.stopPropagation()); clone.classList.remove('active'); active=false; keyUp(name); };
-        clone.addEventListener('pointerdown', activate);
-        window.addEventListener('pointerup', deactivate);
-        window.addEventListener('pointercancel', deactivate);
-        clone.addEventListener('pointerout', e=>{ if(active) deactivate(e); });
-      }
-      el.replaceWith(clone);
-    });
-  }
-
-  // Direction state
+  // Direction mapping with options
   const dir = { L:false, R:false, U:false, D:false };
-  function updateKeysWithSnap(nx, ny){
+  function updateKeys(nx, ny){
     const { enter, exit } = currentDeadzone();
 
     function hyster(axisValue, posKey, negKey){
@@ -304,22 +241,13 @@
       if ( negPressed && axisValue >= -exit) { dir[negKey] = false; keyUp(negKey);   }
     }
 
-    const snap = P.snap; // "smart" | "four" | "eight" | "off"
-    if (snap === 'four' || P.mode === 'dpad'){
-      const ax = Math.abs(nx), ay = Math.abs(ny);
-      const s = (ax > ay)
-        ? { L: nx < -enter, R: nx > enter, U:false, D:false }
-        : { L:false, R:false, U: ny < -enter, D: ny > enter };
-      [['ArrowLeft','L'],['ArrowRight','R'],['ArrowUp','U'],['ArrowDown','D']]
-        .forEach(([k,c]) => { if (s[c]) keyDown(k); else keyUp(k); });
-      return;
-    }
-    if (snap === 'eight'){
+    if (P.snap === 'eight'){
+      // diagonals allowed
       [['ArrowLeft', nx < -enter], ['ArrowRight', nx > enter], ['ArrowUp', ny < -enter], ['ArrowDown', ny > enter]]
         .forEach(([k,on]) => on ? keyDown(k) : keyUp(k));
       return;
     }
-    if (snap === 'smart'){ // dominant axis (prevents accidental diagonals)
+    if (P.snap === 'smart'){
       const ax = Math.abs(nx), ay = Math.abs(ny);
       const s = (ax > ay)
         ? { L: nx < -enter, R: nx > enter, U:false, D:false }
@@ -328,13 +256,13 @@
         .forEach(([k,c]) => { if (s[c]) keyDown(k); else keyUp(k); });
       return;
     }
-    // off: free with hysteresis
+    // off: free + hysteresis
     hyster(nx, 'ArrowRight', 'ArrowLeft');
     hyster(ny, 'ArrowDown',  'ArrowUp');
   }
 
   function tick(){
-    // Smooth toward target
+    // Smooth toward target (EMA)
     const SMOOTH = currentSmoothing();
     x += (tx - x) * SMOOTH;
     y += (ty - y) * SMOOTH;
@@ -352,59 +280,69 @@
     knob.style.left = px + '%'; knob.style.top = py + '%';
 
     // Keys
-    if (P.mode === 'touchpad') updateKeysWithSnap(nx, ny);
+    updateKeys(nx, ny);
 
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
-  // ---------- Apply prefs & init ----------
-  function applyPrefsToUI(){
-    document.documentElement.style.setProperty('--ui-scale', String(P.uiSize));
-    document.documentElement.style.setProperty('--ui-opacity', String(P.uiOpacity));
-    document.documentElement.style.setProperty('--pad-scale', String(P.padScale));
-    document.documentElement.style.setProperty('--pad-offset-x', P.padX + 'vw');
-    document.documentElement.style.setProperty('--pad-offset-y', P.padY + 'vh');
-
-    const isTouch = P.mode === 'touchpad';
-    touchpad.hidden = !isTouch;
-    dpad.hidden = isTouch;
-    enableTouchpadListeners(isTouch);
-    enableDpadListeners(!isTouch);
-
-    // form values
-    modeSel.value = P.mode; snapSel.value = P.snap; sensInp.value = String(P.sensitivity);
-    uiSizeInp.value = String(P.uiSize); uiOpacityInp.value = String(P.uiOpacity);
-    padScaleInp.value = String(P.padScale); padXInp.value = String(P.padX); padYInp.value = String(P.padY);
-    vibrateChk.checked = !!P.vibrate;
-  }
-  applyPrefsToUI();
-
-  // ---------- Settings interactions ----------
+  // ---------- Settings ----------
+  function saveAndApply(){ savePrefs(); applyPrefsToUI(); }
   openSettings.addEventListener('click', () => settingsDlg.showModal());
   settingsDlg.addEventListener('close', () => focusGame());
-
-  modeSel.addEventListener('change', e => { P.mode = e.target.value; savePrefs(); applyPrefsToUI(); toastMsg(P.mode==='touchpad'?'Touchpad':'D-Pad'); });
-  snapSel.addEventListener('change', e => { P.snap = e.target.value; savePrefs(); toastMsg('Snap: '+P.snap); });
+  snapSel.addEventListener('change', e => { P.snap = e.target.value; savePrefs(); toastMsg('Snap: ' + P.snap); });
   sensInp.addEventListener('input', e => { P.sensitivity = parseFloat(e.target.value||'1'); savePrefs(); });
-  uiSizeInp.addEventListener('input', e => { P.uiSize = parseFloat(e.target.value||'1.35'); savePrefs(); applyPrefsToUI(); });
-  uiOpacityInp.addEventListener('input', e => { P.uiOpacity = parseFloat(e.target.value||'0.98'); savePrefs(); applyPrefsToUI(); });
-  padScaleInp.addEventListener('input', e => { P.padScale = parseFloat(e.target.value||'1'); savePrefs(); applyPrefsToUI(); });
-  padXInp.addEventListener('input', e => { P.padX = parseFloat(e.target.value||'0'); savePrefs(); applyPrefsToUI(); });
-  padYInp.addEventListener('input', e => { P.padY = parseFloat(e.target.value||'0'); savePrefs(); applyPrefsToUI(); });
+  uiSizeInp.addEventListener('input', e => { P.uiSize = parseFloat(e.target.value||'1.45'); saveAndApply(); });
+  uiOpacityInp.addEventListener('input', e => { P.uiOpacity = parseFloat(e.target.value||'0.92'); saveAndApply(); });
+  padScaleInp.addEventListener('input', e => { P.padScale = parseFloat(e.target.value||'1.1'); saveAndApply(); });
+  padXInp.addEventListener('input', e => { P.padX = parseFloat(e.target.value||'0'); saveAndApply(); });
+  padYInp.addEventListener('input', e => { P.padY = parseFloat(e.target.value||'0'); saveAndApply(); });
   vibrateChk.addEventListener('change', e => { P.vibrate = !!e.target.checked; savePrefs(); });
   resetPrefs.addEventListener('click', () => {
-    P.mode='touchpad'; P.snap='smart'; P.sensitivity=1.0; P.uiSize=1.35; P.uiOpacity=0.98; P.padScale=1.0; P.padX=0; P.padY=0; P.vibrate=true;
-    savePrefs(); applyPrefsToUI(); toastMsg('Settings reset');
+    P.snap='eight'; P.sensitivity=1.0; P.uiSize=1.45; P.uiOpacity=0.92; P.padScale=1.1; P.padX=0; P.padY=0; P.vibrate=true;
+    saveAndApply(); toastMsg('Settings reset');
   });
 
-  // ---------- Prevent page scroll while using controls ----------
+  // ---------- Reset game & restore SPACE ----------
+  resetBtn.addEventListener('click', () => {
+    spaceUsed = false;
+    localStorage.setItem('wrap_space_used','0');
+    updateSpaceVisibility();
+
+    // release any held keys & recenter
+    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','Enter'].forEach(keyUp);
+    centerTarget();
+
+    // reload game to a clean state
+    try { const src = frame.src; frame.src = src; } catch(e){}
+    toastMsg('Game reset');
+  });
+
+  // ---------- Gate controls ----------
+  enterFS.addEventListener('click', async () => {
+    await enterFullscreen();
+    await tryLockLandscape();
+    updateGate();
+    focusGame();
+  });
+  fullscreenBtn.addEventListener('click', async () => {
+    if (isFullscreen()) { try { await document.exitFullscreen?.(); } catch(e){} }
+    else { await enterFullscreen(); }
+    updateGate();
+  });
+  landscapeBtn.addEventListener('click', tryLockLandscape);
+
+  // Prevent page scroll while using overlay
   ['touchstart','touchmove','touchend'].forEach(t =>
     controls.addEventListener(t, e => e.preventDefault(), { passive:false })
   );
 
-  // ---------- Final touches ----------
+  // Focus when ready
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
-  // Hint if cross-origin breaks input
-  try { void frame.contentDocument; } catch(e){ toastMsg('Host game on same domain so input works'); }
+
+  // Same-origin hint (so key events reach game)
+  try { void frame.contentDocument; } catch(e){ toastMsg('Host game & wrapper on same origin'); }
+
+  // Initial state
+  updateGate();
 })();
