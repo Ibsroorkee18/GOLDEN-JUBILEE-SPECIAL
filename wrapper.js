@@ -6,8 +6,6 @@
   const topbar = document.getElementById('topbar');
   const controls = document.getElementById('controls');
   const placement = document.getElementById('placement');
-  const placeSet = document.getElementById('placeSet');
-  const placeDefaults = document.getElementById('placeDefaults');
   const toast = document.getElementById('toast');
 
   const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -15,13 +13,17 @@
   const openPlacement = document.getElementById('openPlacement');
   const resetBtn = document.getElementById('resetBtn');
 
-  // Controls
-  const padDock = document.getElementById('padDock');
-  const pad = document.getElementById('pad');
-  const padKnob = document.querySelector('.padKnob');
+  const placeSet = document.getElementById('placeSet');
+  const placeDefaults = document.getElementById('placeDefaults');
+  const forceStart = document.getElementById('forceStart');
 
-  const startDock = document.getElementById('startDock');
-  const startBtn = document.getElementById('startBtn');
+  // Checklist bits
+  const padStatus = document.getElementById('padStatus');
+  const startStatus = document.getElementById('startStatus');
+  const editPadBtn = document.getElementById('editPad');
+  const movePadBtn = document.getElementById('movePad');
+  const editStartBtn = document.getElementById('editStart');
+  const moveStartBtn = document.getElementById('moveStart');
 
   // Editor
   const editorOverlay = document.getElementById('editorOverlay');
@@ -29,25 +31,34 @@
   const editSize = document.getElementById('editSize');
   const editOpacity = document.getElementById('editOpacity');
   const editorDone = document.getElementById('editorDone');
+  const editorCancel = document.getElementById('editorCancel');
+  const finishMove = document.getElementById('finishMove');
+
+  // Controls
+  const padDock = document.getElementById('padDock');
+  const pad = document.getElementById('pad');
+  const padKnob = document.querySelector('.padKnob');
+  const startDock = document.getElementById('startDock');
+  const startBtn = document.getElementById('startBtn');
 
   // ---------- Game URL ----------
   const params = new URLSearchParams(location.search);
   frame.src = params.get('src') || 'game.html';
 
-  // ---------- Utilities ----------
+  // ---------- Utils ----------
   const css = (k,v)=>document.documentElement.style.setProperty(k,v);
   const getCSS = k => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(k));
   const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
   function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 1400); }
-  function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch(e){} }
+  function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch{} }
 
-  // Device-aware defaults
-  (function deviceTune(){
-    const shortSide = Math.min(screen.width, screen.height);
+  // Device-aware defaults (one-time per load)
+  (function tuneDefaults(){
+    const ss = Math.min(screen.width, screen.height); // short side
     const ua = navigator.userAgent || '';
-    let padScale = 1.20, startScale = 1.00;
-    if (shortSide <= 360) { padScale = 1.28; startScale = 1.10; }   // small phones
-    if (/iPhone|iPad|iPod/i.test(ua)) padScale += 0.06;             // iOS slight bump
+    let padScale = 1.22, startScale = 1.00;
+    if (ss <= 360) { padScale = 1.30; startScale = 1.10; } // small phones
+    if (/iPhone|iPad|iPod/i.test(ua)) padScale += 0.06;   // iOS thumb bias
     css('--pad-scale', padScale);
     css('--start-scale', startScale);
   })();
@@ -82,142 +93,188 @@
   document.addEventListener('webkitfullscreenchange', updateGate);
   updateGate();
 
+  // Enter app
   enterFS.addEventListener('click', async () => {
     await enterFullscreen();
     await tryLockLandscape();
     updateGate();
-    startPlacement(); // ALWAYS on load
+    startPlacement(); // ALWAYS on every page load
     focusGame();
   });
   fullscreenBtn.addEventListener('click', async () => {
-    if (isFullscreen()) { try { await document.exitFullscreen?.(); } catch {} }
+    if (isFullscreen()) { try { await document.exitFullscreen?.(); } catch{} }
     else { await enterFullscreen(); }
     updateGate();
   });
   landscapeBtn.addEventListener('click', tryLockLandscape);
 
-  // ---------- Placement state ----------
+  // ---------- Placement flow ----------
   let placing = false;
-  // A control is “set” if user either dragged it once OR pressed Done in editor
   const setFlags = { pad:false, start:false };
-  function bothSet(){ return setFlags.pad && setFlags.start; }
-  function updateSetButton(){ placeSet.disabled = !bothSet(); }
-
+  function markStatus(){
+    const on = s => { s.classList.remove('off'); s.classList.add('on'); s.textContent = 'Set'; };
+    const off = s => { s.classList.remove('on'); s.classList.add('off'); s.textContent = 'Not set'; };
+    setFlags.pad ? on(padStatus) : off(padStatus);
+    setFlags.start ? on(startStatus) : off(startStatus);
+    placeSet.disabled = !(setFlags.pad && setFlags.start);
+  }
   function startPlacement(){
     placing = true;
     document.body.classList.add('placing');
     placement.classList.remove('hidden');
-    showStartBtn(false); // cannot start during placement
-    setFlags.pad = false; setFlags.start = false; updateSetButton();
-    // ensure editors closed
+    showStartBtn(false);
+    // reset flags each time you enter placement
+    setFlags.pad = false; setFlags.start = false; markStatus();
+    // close editor/move if any left hanging
     closeEditor();
+    stopMove();
   }
   function endPlacement(){
     placing = false;
     document.body.classList.remove('placing');
     placement.classList.add('hidden');
     closeEditor();
-    showStartBtn(true); // reveal START
+    stopMove();
+    showStartBtn(true);
     focusGame();
   }
 
-  // ---------- Drag controls (vw/vh) ----------
-  function beginDrag(e){
-    if (!placing) return;
-    const type = e.currentTarget.getAttribute('data-drag'); // 'pad'|'start'
-    const id = e.pointerId;
-    const startX = e.clientX, startY = e.clientY;
-    const baseX = getCSS(type==='pad'?'--pad-x':'--start-x');
-    const baseY = getCSS(type==='pad'?'--pad-y':'--start-y');
-    e.currentTarget.setPointerCapture(id);
+  // Checklist actions
+  editPadBtn.addEventListener('click', () => openEditor('pad'));
+  editStartBtn.addEventListener('click', () => openEditor('start'));
+  movePadBtn.addEventListener('click', () => beginMove('pad'));
+  moveStartBtn.addEventListener('click', () => beginMove('start'));
 
-    function move(ev){
-      if (ev.pointerId !== id) return;
-      const dx_vw = (ev.clientX - startX) / window.innerWidth * 100;
-      const dy_vh = (ev.clientY - startY) / window.innerHeight * 100;
-      if (type==='pad'){
-        css('--pad-x', clamp(baseX + dx_vw, -20, 20) + 'vw');
-        css('--pad-y', clamp(baseY + dy_vh, -12, 12) + 'vh');
-        setFlags.pad = true;
-      } else {
-        css('--start-x', clamp(baseX + dx_vw, -30, 30) + 'vw');
-        css('--start-y', clamp(baseY + dy_vh, -15, 15) + 'vh');
-        setFlags.start = true;
-      }
-      updateSetButton();
-      ev.preventDefault();
-    }
-    function up(ev){
-      if (ev.pointerId !== id) return;
-      e.currentTarget.removeEventListener('pointermove', move);
-      e.currentTarget.removeEventListener('pointerup', up);
-      e.currentTarget.removeEventListener('pointercancel', up);
-      ev.preventDefault();
-    }
-    e.currentTarget.addEventListener('pointermove', move);
-    e.currentTarget.addEventListener('pointerup', up);
-    e.currentTarget.addEventListener('pointercancel', up);
-    e.preventDefault();
-  }
-  padDock.addEventListener('pointerdown', beginDrag);
-  startDock.addEventListener('pointerdown', beginDrag);
-
-  // ---------- Centered editor ----------
-  let editing = null; // 'pad' | 'start' | null
-  function openEditor(type){
-    if (!placing) return;
-    editing = type;
-    editorTitle.textContent = type === 'pad' ? 'Edit Touchpad' : 'Edit START';
-    editSize.value = getCSS(type==='pad'?'--pad-scale':'--start-scale') || (type==='pad'?1.2:1.0);
-    editOpacity.value = getCSS(type==='pad'?'--pad-opacity':'--start-opacity') || 0.9;
-    editorOverlay.classList.remove('hidden');
-  }
-  function closeEditor(){ editorOverlay.classList.add('hidden'); editing = null; }
-
-  // Tap to edit
-  pad.addEventListener('click', () => openEditor('pad'));
-  startBtn.addEventListener('click', (e) => { if (placing){ openEditor('start'); e.stopPropagation(); } });
-
-  // Sliders → CSS
-  editSize.addEventListener('input', e => {
-    const v = clamp(parseFloat(e.target.value)||1, 0.9, 1.6);
-    if (editing==='pad') css('--pad-scale', v);
-    else if (editing==='start') css('--start-scale', v);
-  });
-  editOpacity.addEventListener('input', e => {
-    const v = clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0);
-    if (editing==='pad') css('--pad-opacity', v);
-    else if (editing==='start') css('--start-opacity', v);
-  });
-
-  editorDone.addEventListener('click', () => {
-    if (editing==='pad') setFlags.pad = true;
-    if (editing==='start') setFlags.start = true;
-    updateSetButton();
-    closeEditor();
-  });
-
-  // Defaults (also marks both set)
+  // Defaults (also mark set)
   placeDefaults.addEventListener('click', () => {
-    css('--pad-x','0vw'); css('--pad-y','0vh'); css('--pad-scale',1.20); css('--pad-opacity',0.9);
-    css('--start-x','0vw'); css('--start-y','0vh'); css('--start-scale',1.00); css('--start-opacity',0.9);
-    setFlags.pad = true; setFlags.start = true; updateSetButton();
+    css('--pad-x','0vw'); css('--pad-y','0vh'); css('--pad-scale',1.22); css('--pad-opacity',0.92);
+    css('--start-x','0vw'); css('--start-y','0vh'); css('--start-scale',1.00); css('--start-opacity',0.92);
+    setFlags.pad = true; setFlags.start = true; markStatus();
   });
 
-  // SET → lock + reveal START
+  // Force Start fallback (for any weird device)
+  forceStart.addEventListener('click', () => { endPlacement(); toastMsg('Controls set — press START'); });
+
+  // SET (strict)
   placeSet.addEventListener('click', () => {
-    if (!bothSet()) { toastMsg('Set both controls first'); return; }
+    if (placeSet.disabled){ toastMsg('Set both controls first'); return; }
     endPlacement();
     toastMsg('Controls set — press START');
   });
 
-  // Allow re-open placement later via gear
-  openPlacement.addEventListener('click', () => startPlacement());
+  // ---------- Editor (centered) ----------
+  let editing = null; // 'pad' | 'start' | null
+  const editorState = { size: 1, opacity: 0.92, prev: null };
 
-  // ---------- START (Space) ----------
+  function openEditor(type){
+    if (!placing) return;
+    editing = type;
+    editorTitle.textContent = type === 'pad' ? 'Edit Touchpad' : 'Edit START';
+    editorState.prev = {
+      scale: getCSS(type==='pad'?'--pad-scale':'--start-scale'),
+      opacity: getCSS(type==='pad'?'--pad-opacity':'--start-opacity'),
+    };
+    editSize.value = editorState.prev.scale || (type==='pad'?1.22:1.00);
+    editOpacity.value = editorState.prev.opacity || 0.92;
+    editorOverlay.classList.remove('hidden');
+  }
+  function closeEditor(){
+    editorOverlay.classList.add('hidden');
+    editing = null;
+  }
+  editorDone.addEventListener('click', () => {
+    if (editing==='pad') setFlags.pad = true;
+    if (editing==='start') setFlags.start = true;
+    markStatus();
+    closeEditor();
+  });
+  editorCancel.addEventListener('click', () => {
+    if (!editing) return closeEditor();
+    // revert
+    if (editing==='pad'){
+      css('--pad-scale', editorState.prev.scale || 1.22);
+      css('--pad-opacity', editorState.prev.opacity || 0.92);
+    } else {
+      css('--start-scale', editorState.prev.scale || 1.00);
+      css('--start-opacity', editorState.prev.opacity || 0.92);
+    }
+    closeEditor();
+  });
+  editSize.addEventListener('input', e => {
+    const v = clamp(parseFloat(e.target.value)||1, 0.9, 1.7);
+    if (editing==='pad') css('--pad-scale', v);
+    else if (editing==='start') css('--start-scale', v);
+  });
+  editOpacity.addEventListener('input', e => {
+    const v = clamp(parseFloat(e.target.value)||0.92, 0.25, 1.0);
+    if (editing==='pad') css('--pad-opacity', v);
+    else if (editing==='start') css('--start-opacity', v);
+  });
+
+  // ---------- Move mode (drag one control, then Done) ----------
+  let moving = null; // 'pad' | 'start' | null
+  let dragId = null, dragBaseX=0, dragBaseY=0, dragStartX=0, dragStartY=0;
+  function beginMove(type){
+    if (!placing) return;
+    closeEditor();
+    moving = type;
+    finishMove.classList.remove('hidden');
+    finishMove.textContent = `Done Moving ${type==='pad'?'Touchpad':'START'}`;
+  }
+  function stopMove(){
+    moving = null;
+    finishMove.classList.add('hidden');
+  }
+  finishMove.addEventListener('click', () => {
+    if (moving==='pad') setFlags.pad = true;
+    if (moving==='start') setFlags.start = true;
+    markStatus();
+    stopMove();
+  });
+
+  function startDrag(e){
+    if (!placing || !moving) return;
+    const styleKeyX = moving==='pad' ? '--pad-x' : '--start-x';
+    const styleKeyY = moving==='pad' ? '--pad-y' : '--start-y';
+    dragId = e.pointerId;
+    dragBaseX = getCSS(styleKeyX);
+    dragBaseY = getCSS(styleKeyY);
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    e.currentTarget.setPointerCapture?.(dragId);
+    e.preventDefault();
+  }
+  function moveDrag(e){
+    if (!placing || !moving || e.pointerId!==dragId) return;
+    const dx_vw = (e.clientX - dragStartX) / window.innerWidth * 100;
+    const dy_vh = (e.clientY - dragStartY) / window.innerHeight * 100;
+    if (moving==='pad'){
+      css('--pad-x', clamp(dragBaseX + dx_vw, -20, 20) + 'vw');
+      css('--pad-y', clamp(dragBaseY + dy_vh, -12, 12) + 'vh');
+    } else {
+      css('--start-x', clamp(dragBaseX + dx_vw, -30, 30) + 'vw');
+      css('--start-y', clamp(dragBaseY + dy_vh, -15, 15) + 'vh');
+    }
+    e.preventDefault();
+  }
+  function endDrag(e){
+    if (!placing || !moving || e.pointerId!==dragId) return;
+    dragId = null;
+    e.preventDefault();
+  }
+  // Attach to BOTH docks (drag only during move mode)
+  padDock.addEventListener('pointerdown', startDrag, {passive:false});
+  padDock.addEventListener('pointermove', moveDrag, {passive:false});
+  padDock.addEventListener('pointerup', endDrag, {passive:false});
+  padDock.addEventListener('pointercancel', endDrag, {passive:false});
+  startDock.addEventListener('pointerdown', startDrag, {passive:false});
+  startDock.addEventListener('pointermove', moveDrag, {passive:false});
+  startDock.addEventListener('pointerup', endDrag, {passive:false});
+  startDock.addEventListener('pointercancel', endDrag, {passive:false});
+
+  // ---------- On-screen START (Space) ----------
   let startUsed = false;
   function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
-  showStartBtn(false); // only after SET
+  showStartBtn(false); // visible only after SET / forceStart
   bindPress(startBtn, 'Space', () => {
     if (!placing && !startUsed) {
       startUsed = true;
@@ -226,7 +283,7 @@
     }
   });
 
-  // Bind helper for on-screen buttons
+  // Helper to bind screen button → key events
   function bindPress(el, name, onUp){
     let active=false;
     const downH = e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
@@ -237,7 +294,7 @@
     el.addEventListener('pointerout', e=>{ if(active) upH(e); });
   }
 
-  // ---------- Key injection ----------
+  // ---------- Keyboard injection ----------
   const keyMap = {
     ArrowUp:    { key:'ArrowUp',   code:'ArrowUp',   keyCode:38, which:38 },
     ArrowDown:  { key:'ArrowDown', code:'ArrowDown', keyCode:40, which:40 },
@@ -276,7 +333,6 @@
   let tracking=false, pid=null;
   let tx=0, ty=0, x=0, y=0;
   const OUTER = 0.92;
-  // threshold tuned by screen size
   const baseTH = Math.min(screen.width, screen.height) <= 360 ? 0.26 : 0.28;
 
   function padRect(){ return pad.getBoundingClientRect(); }
@@ -325,24 +381,29 @@
   }
   requestAnimationFrame(tick);
 
-  // ---------- START / RESET ----------
+  // ---------- Reset ----------
   resetBtn.addEventListener('click', () => {
     showStartBtn(true); startUsed = false;
+    // release keys & re-center
     ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(k => keyUp(k));
     centerTarget();
-    try { const src = frame.src; frame.src = src; } catch {}
+
+    // hard reload the iframe to avoid stale state
+    try {
+      const src = frame.src;
+      frame.src = 'about:blank';
+      setTimeout(() => { frame.src = src; }, 30);
+    } catch {}
+
     toastMsg('Game reset');
   });
 
-  // Don’t trap clicks; we already use CSS touch-action to stop scrolling
-  // Keep clicks working for buttons & editor.
-  // Focus when game loads
+  // Focus when ready
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
 
-  // Same-origin hint
-  try { void frame.contentDocument; } catch { toastMsg('Host game & wrapper on same origin'); }
+  // Same-origin hint (key events need same origin)
+  try { void frame.contentDocument; } catch { toastMsg('Host game & wrapper on same origin for controls'); }
 
   // helper: show/hide START
   function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
-
 })();

@@ -1,7 +1,7 @@
 :root{
-  /* positions (vw/vh) and scales — JS will tweak these on load per device */
-  --pad-x: 0vw;    --pad-y: 0vh;    --pad-scale: 1.20;   --pad-opacity: 0.9;
-  --start-x: 0vw;  --start-y: 0vh;  --start-scale: 1.00;  --start-opacity: 0.9;
+  /* positions (vw/vh) and scales — tuned at runtime by JS per device */
+  --pad-x: 0vw;    --pad-y: 0vh;    --pad-scale: 1.22;   --pad-opacity: 0.92;
+  --start-x: 0vw;  --start-y: 0vh;  --start-scale: 1.00; --start-opacity: 0.92;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif}
@@ -12,6 +12,8 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 #gate.hidden{display:none}
 .gate-card{padding:18px 22px;border-radius:16px;background:rgba(25,25,25,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.22);text-align:center}
 .btn{display:inline-grid;place-items:center;padding:12px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;user-select:none}
+.btn.ghost{background:rgba(255,255,255,.08)}
+.btn.sm{padding:8px 12px;font-size:14px}
 .btn:active,.btn.active{background:rgba(255,255,255,.5);border-color:#fff}
 .gate-title{font-weight:800;margin-bottom:6px}
 .gate-sub{opacity:.85;margin-bottom:10px}
@@ -27,33 +29,32 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 #toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;z-index:8}
 #toast.show{opacity:1}
 
-/* Controls overlay: must receive touches */
+/* Controls overlay (must receive touches) */
 #controls{
   position:fixed;left:0;right:0;bottom:0;top:0;z-index:6;pointer-events:auto;
-  /* prevent page scroll while still allowing clicks to work */
-  touch-action:none;
+  touch-action:none; /* stop page scroll without killing clicks */
 }
 
-/* START button (left) */
+/* START button */
 .startDock{
   position:absolute; left:14px; bottom:14px;
   transform: translate(var(--start-x), var(--start-y)) scale(var(--start-scale));
   transform-origin: bottom left; opacity: var(--start-opacity);
 }
 .startBtn{
-  width: clamp(56px, 13vmin, 84px); height: clamp(56px, 13vmin, 84px);
+  width: clamp(58px, 13vmin, 88px); height: clamp(58px, 13vmin, 88px);
   border-radius: 14px; border:1px solid rgba(255,255,255,.25);
   background: rgba(255,255,255,.16); color:#fff; font-weight:800; letter-spacing:.5px;
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Pad (right) — circular only */
+/* Pad — circular only */
 .padDock{
   position:absolute; right:14px; bottom:14px;
   transform: translate(var(--pad-x), var(--pad-y)) scale(var(--pad-scale));
   transform-origin: bottom right; opacity: var(--pad-opacity);
 }
-.pad{ position:relative; width:min(52vmin, 48vw); height:min(52vmin, 48vw); }
+.pad{ position:relative; width:min(54vmin, 48vw); height:min(54vmin, 48vw); }
 .padRing{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:100%; height:100%; border-radius:50%;
@@ -67,18 +68,24 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Placement overlay (always on load; no skip) */
+/* Placement overlay */
 #placement{
   position:fixed; inset:0; display:grid; place-items:center; z-index:9999;
   background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.8));
 }
 #placement.hidden{display:none}
 .place-card{
-  width:min(560px, 92vw); padding:16px; border-radius:16px;
+  width:min(640px, 94vw); padding:16px; border-radius:16px;
   background:rgba(25,25,25,.6); border:1px solid rgba(255,255,255,.22); backdrop-filter:blur(8px)
 }
-.place-card h3{margin:0 0 8px 0}
-.place-card ol{margin:8px 0 12px 18px;padding:0}
+.place-card h3{margin:0 0 10px 0}
+.checklist{display:grid; gap:10px; margin:6px 0 12px 0}
+.checklist .row{display:flex; align-items:center; gap:10px; justify-content:space-between; background:rgba(255,255,255,.05); padding:8px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.12)}
+.checklist .tag{font-weight:800}
+.status{padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.22);font-size:12px}
+.status.on{background:rgba(48,199,90,.18);border-color:rgba(48,199,90,.6)}
+.status.off{background:rgba(255,255,255,.08)}
+.actions{display:flex; gap:8px}
 .place-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
 .hint{opacity:.75;margin-top:8px;font-size:.9em}
 #placeSet:disabled{opacity:.5}
@@ -86,24 +93,31 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 /* Centered editor */
 #editorOverlay{
   position:fixed; inset:0; display:grid; place-items:center; z-index:10000;
-  background: rgba(0,0,0,.4);
+  background: rgba(0,0,0,.45);
 }
 #editorOverlay.hidden{display:none}
 .editor{
-  width:min(520px, 92vw); padding:16px; border-radius:16px;
+  width:min(560px, 94vw); padding:16px; border-radius:16px;
   background:rgba(25,25,25,.96); color:#fff; border:1px solid rgba(255,255,255,.22);
   display:grid; gap:12px;
 }
 .editorTitle{font-weight:800}
 .editor label{display:flex;justify-content:space-between;gap:10px;align-items:center}
 .editor input{width:60%}
-.editorActions{display:flex;justify-content:flex-end}
+.editorActions{display:flex;gap:10px;justify-content:flex-end}
+
+/* Move-mode bubble */
+.bubble{
+  position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+  z-index:10001; padding:10px 14px; border-radius:999px;
+  background:rgba(25,25,25,.92); color:#fff; border:1px solid rgba(255,255,255,.22)
+}
+.hidden{display:none!important}
 
 /* While placing, show dashed outlines */
-.placing #startDock, .placing #padDock{ outline:2px dashed rgba(255,255,255,.4); border-radius:14px; }
+.placing #startDock, .placing #padDock{ outline:2px dashed rgba(255,255,255,.4); border-radius:14px }
 
 /* Portrait blur (gate still blocks anyway) */
 @media (orientation:portrait){
   #stage{filter:blur(2px);pointer-events:none}
 }
-.hidden{display:none!important}

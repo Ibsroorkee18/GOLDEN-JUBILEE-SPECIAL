@@ -20,7 +20,7 @@
       </div>
     </div>
 
-    <!-- Game fills the screen -->
+    <!-- Game fills screen -->
     <div id="stage" aria-hidden="true">
       <iframe id="gameframe" allow="autoplay; fullscreen; gamepad"></iframe>
 
@@ -51,35 +51,54 @@
       </div>
     </div>
 
-    <!-- Placement overlay (ALWAYS on load; no skip) -->
+    <!-- Placement overlay (ALWAYS on page load) -->
     <div id="placement">
       <div class="place-card">
         <h3>Place your controls</h3>
-        <ol>
-          <li><b>Drag</b> the round touchpad and the <b>START</b> button into comfy spots.</li>
-          <li><b>Tap</b> a control to tweak <b>size</b> & <b>opacity</b>, then hit <b>Done</b>.</li>
-          <li>When both are set, press <b>SET</b>. Then press <b>START</b> to begin.</li>
-        </ol>
+
+        <div class="checklist">
+          <div class="row">
+            <span class="tag">Touchpad</span>
+            <span id="padStatus" class="status off">Not set</span>
+            <div class="actions">
+              <button id="editPad" class="btn sm">Edit</button>
+              <button id="movePad" class="btn sm ghost">Move</button>
+            </div>
+          </div>
+          <div class="row">
+            <span class="tag">START</span>
+            <span id="startStatus" class="status off">Not set</span>
+            <div class="actions">
+              <button id="editStart" class="btn sm">Edit</button>
+              <button id="moveStart" class="btn sm ghost">Move</button>
+            </div>
+          </div>
+        </div>
+
         <div class="place-actions">
           <button id="placeSet" class="btn" disabled>SET</button>
-          <button id="placeDefaults" class="btn" type="button">Defaults</button>
+          <button id="placeDefaults" class="btn ghost" type="button">Defaults</button>
+          <button id="forceStart" class="btn ghost" type="button" title="Use if your device blocks the set checks">Start Anyway</button>
         </div>
-        <p class="hint">This placement shows on every page reload. RESET just restarts your game.</p>
+        <p class="hint">This placement appears on every page reload. RESET only restarts the game.</p>
       </div>
     </div>
 
-    <!-- Centered editor (for pad or start) -->
+    <!-- Centered editor (for pad OR start) -->
     <div id="editorOverlay" class="hidden" role="dialog" aria-modal="true">
       <div class="editor">
         <div class="editorTitle" id="editorTitle">Edit Control</div>
-        <label>Size <input id="editSize" type="range" min="0.9" max="1.6" step="0.05"></label>
-        <label>Opacity <input id="editOpacity" type="range" min="0.3" max="1.0" step="0.05"></label>
+        <label>Size <input id="editSize" type="range" min="0.9" max="1.7" step="0.05"></label>
+        <label>Opacity <input id="editOpacity" type="range" min="0.25" max="1.0" step="0.05"></label>
         <div class="editorActions">
           <button id="editorDone" class="btn">Done</button>
+          <button id="editorCancel" class="btn ghost">Cancel</button>
         </div>
       </div>
     </div>
 
+    <!-- Move mode bubble -->
+    <button id="finishMove" class="bubble hidden">Done Moving</button>
   </div>
 
   <script src="wrapper.js" defer></script>
