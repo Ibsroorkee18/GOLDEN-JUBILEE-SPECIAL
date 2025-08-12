@@ -14,7 +14,7 @@
         <div class="gate-title">Rotate & go fullscreen</div>
         <div class="gate-sub">Phone-only • fullscreen landscape required</div>
         <div class="gate-actions">
-          <button id="enterFS" class="btn pill">Enter Fullscreen</button>
+          <button id="enterFS" class="btn">Enter Fullscreen</button>
         </div>
         <div class="gate-hint">If lock fails, rotate your phone horizontally.</div>
       </div>
@@ -26,18 +26,18 @@
 
       <!-- Top-right HUD -->
       <div id="topbar">
-        <button id="landscape" class="btn ghost" title="Lock landscape">⟲</button>
-        <button id="fullscreenBtn" class="btn ghost" title="Toggle fullscreen">⤢</button>
-        <button id="openPlacement" class="btn ghost" title="Adjust controls">⚙️</button>
-        <button id="resetBtn" class="btn ghost" title="Reset game & restore START">RESET</button>
+        <button id="landscape" class="btn" title="Lock landscape">⟲</button>
+        <button id="fullscreenBtn" class="btn" title="Toggle fullscreen">⤢</button>
+        <button id="openPlacement" class="btn" title="Adjust controls">⚙️</button>
+        <button id="resetBtn" class="btn" title="Reset game & restore START">RESET</button>
       </div>
 
       <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
-    <!-- Controls overlay (locked during play) -->
+    <!-- Controls overlay -->
     <div id="controls" aria-hidden="true" aria-label="Touch Controls">
-      <!-- START (SPACE) — movable dock (left by default) -->
+      <!-- START (SPACE) — movable -->
       <div id="startDock" class="startDock" data-drag="start">
         <button id="startBtn" class="startBtn" data-key="Space">START</button>
         <!-- mini editor -->
@@ -48,7 +48,7 @@
         </div>
       </div>
 
-      <!-- Circular touchpad — movable/resizeable -->
+      <!-- Circular touchpad — movable -->
       <div id="padDock" class="padDock" data-drag="pad">
         <div id="pad" class="pad" aria-label="Touchpad">
           <div class="padRing"></div>
@@ -63,18 +63,18 @@
       </div>
     </div>
 
-    <!-- Placement overlay (ALWAYS on page load; forced before play) -->
+    <!-- Placement overlay (ALWAYS on load; no skip) -->
     <div id="placement">
       <div class="place-card">
         <h3>Place your controls</h3>
         <ol>
           <li><b>Drag</b> the round touchpad and the <b>START</b> button.</li>
-          <li><b>Tap</b> a control to adjust <b>size</b> & <b>opacity</b>, then tap <b>Done</b>.</li>
-          <li>When ready, tap <b>SET & START</b>. You can re-open this anytime (⚙️).</li>
+          <li><b>Tap</b> each control → adjust <b>size</b> & <b>opacity</b> → press <b>Done</b>.</li>
+          <li>When both are done, press <b>SET</b>. Then press <b>START</b> to begin.</li>
         </ol>
         <div class="place-actions">
-          <button id="placeSetStart" class="btn pill" disabled>SET & START</button>
-          <button id="placeDefaults" class="btn pill ghost" type="button">Defaults</button>
+          <button id="placeSet" class="btn" disabled>SET</button>
+          <button id="placeDefaults" class="btn" type="button">Defaults</button>
         </div>
         <p class="hint">This setup shows on every reload. RESET only restarts the game.</p>
       </div>

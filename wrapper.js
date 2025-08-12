@@ -12,7 +12,7 @@
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   const openPlacement = document.getElementById('openPlacement');
   const resetBtn = document.getElementById('resetBtn');
-  const placeSetStart = document.getElementById('placeSetStart');
+  const placeSet = document.getElementById('placeSet');
   const placeDefaults = document.getElementById('placeDefaults');
 
   // START
@@ -65,30 +65,32 @@
   addEventListener('resize', updateGate);
   document.addEventListener('fullscreenchange', updateGate);
   document.addEventListener('webkitfullscreenchange', updateGate);
+  updateGate();
 
   // Always show placement on every page load
   let placing = false;
+  const done = { pad:false, start:false }; // must press Done on BOTH
   function startPlacement(){
     placing = true;
     document.body.classList.add('placing');
     placement.classList.remove('hidden');
-    // show both mini editors closed initially
-    closeEditor(padEditor);
-    closeEditor(startEditor);
-    // require interaction with both before enabling SET
-    touched.pad = false; touched.start = false;
-    updateSetButton();
+    // hide START during placement so it can't be pressed
+    showStartBtn(false);
+    // reset 'done' gates each time placement opens
+    done.pad = false; done.start = false; updateSetButton();
+    // close any editors initially
+    closeEditor(padEditor); closeEditor(startEditor);
   }
   function endPlacement(){
     placing = false;
     document.body.classList.remove('placing');
     placement.classList.add('hidden');
     closeEditor(padEditor); closeEditor(startEditor);
+    // after SET, reveal START so player can begin
+    showStartBtn(true);
     focusGame();
   }
-  function updateSetButton(){
-    placeSetStart.disabled = !(touched.pad && touched.start);
-  }
+  function updateSetButton(){ placeSet.disabled = !(done.pad && done.start); }
 
   // Gate entry
   enterFS.addEventListener('click', async () => {
@@ -104,7 +106,6 @@
     updateGate();
   });
   landscapeBtn.addEventListener('click', tryLockLandscape);
-  updateGate();
 
   // --- Key injection (block while placing) ---
   const keyMap = {
@@ -141,16 +142,19 @@
     } catch(e){}
   }
 
-  // START button behavior (session-based visibility)
+  // START button: visible after placement; hides after first press
   let startUsed = false;
   function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
-  showStartBtn(true); // always show on each page load
+  showStartBtn(false); // hidden until you SET controls
   bindPress(startBtn, 'Space', () => {
-    // after first press, hide START for rest of the session (until RESET)
-    if (!startUsed && !placing) { startUsed = true; showStartBtn(false); toastMsg('Start hidden (RESET to restore)'); }
+    if (!placing && !startUsed) {
+      startUsed = true;
+      showStartBtn(false); // hide for the session
+      toastMsg('Start hidden (RESET to restore)');
+    }
   });
 
-  // Binding helper for on-screen keys
+  // Binding helper
   function bindPress(el, name, onUp){
     let active=false;
     const downH = e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
@@ -161,10 +165,10 @@
     el.addEventListener('pointerout', e=>{ if(active) upH(e); });
   }
 
-  // --- Circular pad joystick (fixed center) ---
+  // --- Circular pad joystick ---
   let tracking=false, pid=null;
-  let tx=0, ty=0, x=0, y=0; // target & filtered (-1..1)
-  const OUTER = 0.92;       // knob travel fraction
+  let tx=0, ty=0, x=0, y=0;
+  const OUTER = 0.92;
   function getPadRect(){ return pad.getBoundingClientRect(); }
   function setTargetFromEvent(e){
     const r = getPadRect();
@@ -174,11 +178,17 @@
     const mag = Math.hypot(dx,dy) || 1;
     dx = (dx/mag) * Math.min(1, Math.abs(dx));
     dy = (dy/mag) * Math.min(1, Math.abs(dy));
-    const scale = 1.0; // sensitivity already tuned
-    tx = Math.max(-1, Math.min(1, dx * scale));
-    ty = Math.max(-1, Math.min(1, dy * scale));
+    tx = Math.max(-1, Math.min(1, dx));
+    ty = Math.max(-1, Math.min(1, dy));
   }
-  function centerTarget(){ tx=0; ty=0; }
+  function centerTarget(){ tx=0; ty=0; moveKnob(0,0,true); }
+  function moveKnob(nx,ny,instant=false){
+    const r = getPadRect();
+    const px = (r.width/2) + nx * (r.width*0.5*OUTER);
+    const py = (r.height/2)+ ny * (r.height*0.5*OUTER);
+    padKnob.style.left = px + 'px'; padKnob.style.top = py + 'px';
+    if (instant){ x=nx; y=ny; }
+  }
 
   pad.addEventListener('pointerdown', e => { if(placing) return; tracking=true; pid=e.pointerId; setTargetFromEvent(e); e.preventDefault(); });
   pad.addEventListener('pointermove', e => { if(placing || !tracking || e.pointerId!==pid) return; setTargetFromEvent(e); e.preventDefault(); });
@@ -194,14 +204,10 @@
 
     // clamp and move knob
     const m = Math.hypot(x,y); const nx = m>1 ? x/m : x; const ny = m>1 ? y/m : y;
-    const r = getPadRect();
-    const px = (r.width/2) + nx * (r.width*0.5*OUTER);
-    const py = (r.height/2)+ ny * (r.height*0.5*OUTER);
-    padKnob.style.left = px + 'px'; padKnob.style.top = py + 'px';
+    moveKnob(nx, ny);
 
-    // keys (8-way default; diagonals allowed)
-    const TH = 0.28;
-    const L = nx < -TH, R = nx > TH, U = ny < -TH, D = ny > TH;
+    // keys: 8-way (diagonals allowed)
+    const TH = 0.28, L = nx < -TH, R = nx > TH, U = ny < -TH, D = ny > TH;
     L ? keyDown('ArrowLeft')  : keyUp('ArrowLeft');
     R ? keyDown('ArrowRight') : keyUp('ArrowRight');
     U ? keyDown('ArrowUp')    : keyUp('ArrowUp');
@@ -212,10 +218,9 @@
   requestAnimationFrame(tick);
 
   // --- Placement (drag + per-control mini editors) ---
-  const touched = { pad:false, start:false }; // must touch both before SET
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-  // Dragging in vw/vh units
+  // Dragging in vw/vh units (only when placing)
   function beginDrag(e){
     if (!placing) return;
     const type = e.currentTarget.getAttribute('data-drag'); // 'pad'|'start'
@@ -231,11 +236,9 @@
       if (type==='pad'){
         document.documentElement.style.setProperty('--pad-x', clamp(baseX + dx_vw, -20, 20) + 'vw');
         document.documentElement.style.setProperty('--pad-y', clamp(baseY + dy_vh, -12, 12) + 'vh');
-        touched.pad = true; updateSetButton();
       } else {
         document.documentElement.style.setProperty('--start-x', clamp(baseX + dx_vw, -30, 30) + 'vw');
         document.documentElement.style.setProperty('--start-y', clamp(baseY + dy_vh, -15, 15) + 'vh');
-        touched.start = true; updateSetButton();
       }
       ev.preventDefault();
     }
@@ -254,44 +257,33 @@
   padDock.addEventListener('pointerdown', beginDrag);
   startDock.addEventListener('pointerdown', beginDrag);
 
-  // Mini editors (open by tapping the control while placing)
-  function openEditor(editor, forType){
+  // Editors
+  function openEditor(editor, type){
     if (!placing) return;
     editor.hidden = false;
-    // seed sliders from CSS vars
-    if (forType==='pad'){
+    if (type==='pad'){
       padSize.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pad-scale')) || 1.2;
       padOpacity.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pad-opacity')) || 0.9;
-      touched.pad = true; updateSetButton();
     } else {
       startSize.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--start-scale')) || 1.0;
       startOpacity.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--start-opacity')) || 0.9;
-      touched.start = true; updateSetButton();
     }
   }
   function closeEditor(editor){ editor.hidden = true; }
   pad.addEventListener('click', () => openEditor(padEditor,'pad'));
-  startBtn.addEventListener('click', (e) => {
-    if (placing){ openEditor(startEditor,'start'); e.stopPropagation(); }
-  });
-  padEditor.querySelector('.miniClose').addEventListener('click', ()=>closeEditor(padEditor));
-  startEditor.querySelector('.miniClose').addEventListener('click', ()=>closeEditor(startEditor));
+  startBtn.addEventListener('click', (e) => { if (placing){ openEditor(startEditor,'start'); e.stopPropagation(); } });
 
   // Editor sliders → CSS vars
-  padSize.addEventListener('input', e => {
-    document.documentElement.style.setProperty('--pad-scale', clamp(parseFloat(e.target.value)||1.2, 0.9, 1.5));
-  });
-  padOpacity.addEventListener('input', e => {
-    document.documentElement.style.setProperty('--pad-opacity', clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0));
-  });
-  startSize.addEventListener('input', e => {
-    document.documentElement.style.setProperty('--start-scale', clamp(parseFloat(e.target.value)||1.0, 0.9, 1.5));
-  });
-  startOpacity.addEventListener('input', e => {
-    document.documentElement.style.setProperty('--start-opacity', clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0));
-  });
+  padSize.addEventListener('input', e => document.documentElement.style.setProperty('--pad-scale', clamp(parseFloat(e.target.value)||1.2, 0.9, 1.5)));
+  padOpacity.addEventListener('input', e => document.documentElement.style.setProperty('--pad-opacity', clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0)));
+  startSize.addEventListener('input', e => document.documentElement.style.setProperty('--start-scale', clamp(parseFloat(e.target.value)||1.0, 0.9, 1.5)));
+  startOpacity.addEventListener('input', e => document.documentElement.style.setProperty('--start-opacity', clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0)));
 
-  // Defaults button during placement
+  // When user taps Done inside each editor → mark that control as "done"
+  padEditor.querySelector('.miniClose').addEventListener('click', () => { closeEditor(padEditor); done.pad = true; updateSetButton(); });
+  startEditor.querySelector('.miniClose').addEventListener('click', () => { closeEditor(startEditor); done.start = true; updateSetButton(); });
+
+  // Defaults button during placement (also marks both done)
   placeDefaults.addEventListener('click', () => {
     document.documentElement.style.setProperty('--pad-x', '0vw');
     document.documentElement.style.setProperty('--pad-y', '0vh');
@@ -301,36 +293,37 @@
     document.documentElement.style.setProperty('--start-y', '0vh');
     document.documentElement.style.setProperty('--start-scale', 1.0);
     document.documentElement.style.setProperty('--start-opacity', 0.9);
-    touched.pad = true; touched.start = true; updateSetButton();
+    done.pad = true; done.start = true; updateSetButton();
   });
 
-  // SET & START: lock controls, start game
-  placeSetStart.addEventListener('click', () => {
-    if (placeSetStart.disabled) return;
-    endPlacement();
-    showStartBtn(true); // visible at first so player can start
-    toastMsg('Controls locked — tap START');
+  // SET: lock controls; START will appear; do NOT auto-start the game
+  placeSet.addEventListener('click', () => {
+    if (placeSet.disabled) return;
+    endPlacement(); // locks placement
+    toastMsg('Controls set — press START');
   });
 
-  // Open placement later via gear
+  // Open placement later via gear (optional)
   openPlacement.addEventListener('click', () => startPlacement());
 
-  // --- RESET: reload game only, also restore START ---
+  // --- RESET: reload game only, also restore START & center pad ---
   resetBtn.addEventListener('click', () => {
-    showStartBtn(true); // bring back start
+    showStartBtn(true); // bring back START
+    // release keys & re-center joystick instantly
     ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(k => keyUp(k));
+    centerTarget();
     try { const src = frame.src; frame.src = src; } catch(e){}
     toastMsg('Game reset');
   });
 
-  // Prevent page scroll while interacting with overlay controls
+  // Prevent page scroll while interacting with overlay
   ['touchstart','touchmove','touchend'].forEach(t =>
-    document.getElementById('controls').addEventListener(t, e => e.preventDefault(), { passive:false })
+    controls.addEventListener(t, e => e.preventDefault(), { passive:false })
   );
 
   // Focus when ready
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
 
-  // Same-origin hint (so key events reach game)
+  // Same-origin hint
   try { void frame.contentDocument; } catch(e){ toastMsg('Host game & wrapper on same origin'); }
 })();
