@@ -1,191 +1,76 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Mobile Wrapper (Arrow + Space/Enter)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <style>
-    :root{
-      --ui-bg: rgba(20,20,20,0.45);
-      --btn-bg: rgba(255,255,255,0.12);
-      --btn-bg-active: rgba(255,255,255,0.35);
-      --btn-border: rgba(255,255,255,0.35);
-      --pad-size: min(44vmin, 46vw);
-      --action-width: min(48vmin, 52vw);
-      --bottom-pad: env(safe-area-inset-bottom, 8px);
-    }
-    *{box-sizing:border-box;-webkit-touch-callout:none}
-    html,body{margin:0;height:100%;background:#0b0e11;color:#e8f0f2;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans,sans-serif;overscroll-behavior:none}
-    #wrap{position:fixed;inset:0;display:grid;grid-template-rows:1fr auto}
-    #stage{position:relative;overflow:hidden;background:#000}
-    #gameframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
-    #starter{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.75),rgba(0,0,0,.95));z-index:10}
-    #starter .card{padding:18px;text-align:center;background:rgba(0,0,0,.35);border:1px solid var(--btn-border);border-radius:16px;backdrop-filter:blur(6px)}
-    #starter button{font-size:18px;padding:12px 20px;border-radius:999px;border:1px solid var(--btn-border);background:var(--btn-bg);color:#fff}
-    #starter button:active{background:var(--btn-bg-active)}
-    .toggle{position:absolute;top:8px;right:10px;z-index:5;opacity:.85}
-    .toggle button{padding:6px 10px;border-radius:999px;border:1px solid var(--btn-border);background:var(--btn-bg);color:#fff}
-    .toggle button:active{background:var(--btn-bg-active)}
-    #controls{position:relative;padding:10px 12px calc(16px + var(--bottom-pad));background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.2));display:grid;grid-template-columns:1fr 1fr;gap:10px;touch-action:none}
-    .dpad{justify-self:start;width:var(--pad-size);aspect-ratio:1/1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;padding:6px;background:var(--ui-bg);border-radius:20px;backdrop-filter:blur(6px)}
-    .btn{display:grid;place-items:center;border:1px solid var(--btn-border);border-radius:16px;background:var(--btn-bg);user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;font-weight:700;letter-spacing:.02em;box-shadow:0 6px 18px rgba(0,0,0,.35) inset,0 2px 8px rgba(0,0,0,.35);cursor:pointer;touch-action:none}
-    .btn:active,.btn.active{background:var(--btn-bg-active);border-color:#fff}
-    .btn.up{grid-column:2;grid-row:1}
-    .btn.left{grid-column:1;grid-row:2}
-    .btn.right{grid-column:3;grid-row:2}
-    .btn.down{grid-column:2;grid-row:3}
-    .spacer{grid-column:2;grid-row:2;border-radius:12px;border:1px dashed rgba(255,255,255,.18);opacity:.35}
-    .actions{justify-self:end;display:grid;grid-template-columns:1fr;gap:10px;align-content:end;width:var(--action-width)}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .btn.big{height:clamp(56px,14vmin,90px);border-radius:999px;font-size:clamp(14px,3.4vmin,20px)}
-  </style>
+  <meta charset="utf-8" />
+  <title>Play</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="stylesheet" href="wrapper.css" />
 </head>
 <body>
   <div id="wrap">
     <div id="stage">
       <iframe id="gameframe" allow="autoplay; fullscreen"></iframe>
 
-      <div id="starter">
+      <!-- Starter: required on mobile so audio + focus work -->
+      <div id="starter" role="dialog" aria-modal="true">
         <div class="card">
-          <div style="margin-bottom:10px;font-weight:700">Mobile Controls Wrapper</div>
-          <div style="opacity:.8;margin-bottom:12px">Place your game next to this file as <code>game.html</code><br>or open with <code>?src=YourGame.html</code>.</div>
-          <button id="startBtn">Tap to Start</button>
+          <div class="title">Ready?</div>
+          <div class="sub">Tap to focus & enable audio</div>
+          <button id="startBtn" class="btn pill">Tap to Start</button>
         </div>
       </div>
 
-      <div class="toggle">
-        <button id="hideBtn" aria-pressed="false">Hide Controls</button>
+      <!-- Top HUD: controls toggle + settings -->
+      <div id="topbar">
+        <button id="toggleControls" class="btn ghost" aria-pressed="false" title="Hide/Show Controls">🎮</button>
+        <button id="openSettings" class="btn ghost" title="Settings">⚙️</button>
       </div>
     </div>
 
-    <div id="controls">
-      <div class="dpad">
-        <div class="btn up"    data-key="ArrowUp"    aria-label="Up">▲</div>
-        <div class="btn left"  data-key="ArrowLeft"  aria-label="Left">◀</div>
-        <div class="spacer"></div>
-        <div class="btn right" data-key="ArrowRight" aria-label="Right">▶</div>
-        <div class="btn down"  data-key="ArrowDown"  aria-label="Down">▼</div>
-      </div>
-
-      <div class="actions">
-        <div class="row">
-          <div class="btn big" data-key="Space" aria-label="A (Space)">A • SPACE</div>
-          <div class="btn big" data-key="Enter" aria-label="B (Enter)">B • ENTER</div>
+    <!-- Bottom controls -->
+    <div id="controls" aria-label="Touch Controls">
+      <div id="controlInner" class="layout-center">
+        <div class="dpad" id="dpad" aria-label="D-pad">
+          <button class="seg up"    data-key="ArrowUp"    aria-label="Up"></button>
+          <button class="seg left"  data-key="ArrowLeft"  aria-label="Left"></button>
+          <button class="seg right" data-key="ArrowRight" aria-label="Right"></button>
+          <button class="seg down"  data-key="ArrowDown"  aria-label="Down"></button>
+          <div class="nub"></div>
         </div>
-        <div class="btn big" id="fullscreenBtn" aria-label="Fullscreen">FULLSCREEN</div>
+
+        <div class="actions">
+          <button class="btn action A" data-key="Space" aria-label="A (Space)">A</button>
+          <button class="btn action B" data-key="Enter" aria-label="B (Enter)">B</button>
+          <button class="btn action full" id="fullscreenBtn" aria-label="Fullscreen">⤢</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const frame = document.getElementById('gameframe');
-      const startBtn = document.getElementById('startBtn');
-      const starter = document.getElementById('starter');
-      const hideBtn = document.getElementById('hideBtn');
-      const controls = document.getElementById('controls');
-      const fullscreenBtn = document.getElementById('fullscreenBtn');
+  <!-- Settings panel -->
+  <dialog id="settings">
+    <form method="dialog">
+      <h3>Controls</h3>
+      <label class="row">
+        <span>Left-handed layout</span>
+        <input id="lefty" type="checkbox" />
+      </label>
+      <label class="row">
+        <span>UI size</span>
+        <input id="uisize" type="range" min="0.8" max="1.6" step="0.05" />
+      </label>
+      <label class="row">
+        <span>UI opacity</span>
+        <input id="uiopacity" type="range" min="0.2" max="1.0" step="0.05" />
+      </label>
+      <div class="row buttons">
+        <button class="btn pill">Close</button>
+        <button id="resetPrefs" class="btn pill ghost" type="button">Reset</button>
+      </div>
+      <p class="hint">Tip: host <code>index.html</code> and your game file on the same domain for the keys to work.</p>
+    </form>
+  </dialog>
 
-      // Resolve game src: ?src=YourGame.html or fallback to game.html
-      const params = new URLSearchParams(location.search);
-      const src = params.get('src') || 'game.html';
-      frame.src = src;
-
-      function focusGame(){
-        try { frame.focus(); frame.contentWindow && frame.contentWindow.focus(); } catch(e){}
-      }
-
-      const keyMap = {
-        'ArrowUp':    { key:'ArrowUp',   code:'ArrowUp',   keyCode:38, which:38 },
-        'ArrowDown':  { key:'ArrowDown', code:'ArrowDown', keyCode:40, which:40 },
-        'ArrowLeft':  { key:'ArrowLeft', code:'ArrowLeft', keyCode:37, which:37 },
-        'ArrowRight': { key:'ArrowRight',code:'ArrowRight',keyCode:39, which:39 },
-        'Space':      { key:' ',         code:'Space',     keyCode:32, which:32 },
-        'Enter':      { key:'Enter',     code:'Enter',     keyCode:13, which:13 }
-      };
-      const down = new Set();
-
-      function dispatch(to, type, data){
-        const ev = new KeyboardEvent(type, {
-          key:data.key, code:data.code, keyCode:data.keyCode, which:data.which,
-          bubbles:true, cancelable:true
-        });
-        Object.defineProperty(ev, 'keyCode', { get: () => data.keyCode });
-        Object.defineProperty(ev, 'which',   { get: () => data.which });
-        to.dispatchEvent(ev);
-      }
-
-      function keyDown(name){
-        const data = keyMap[name];
-        if (!data || down.has(name)) return;
-        down.add(name);
-        try{
-          const doc = frame.contentDocument || frame.contentWindow.document;
-          dispatch(doc,'keydown',data);
-          dispatch(frame.contentWindow,'keydown',data);
-        }catch(e){}
-      }
-      function keyUp(name){
-        const data = keyMap[name];
-        if (!data || !down.has(name)) return;
-        down.delete(name);
-        try{
-          const doc = frame.contentDocument || frame.contentWindow.document;
-          dispatch(doc,'keyup',data);
-          dispatch(frame.contentWindow,'keyup',data);
-        }catch(e){}
-      }
-
-      function bindButton(el){
-        const name = el.getAttribute('data-key');
-        let active = false;
-        const activate = (e)=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
-        const deactivate = (e)=>{ if(!active) return; e && (e.preventDefault(), e.stopPropagation()); el.classList.remove('active'); active=false; keyUp(name); };
-        el.addEventListener('pointerdown', activate);
-        window.addEventListener('pointerup', deactivate);
-        window.addEventListener('pointercancel', deactivate);
-        el.addEventListener('pointerout', (e)=>{ if(active) deactivate(e); });
-      }
-      document.querySelectorAll('.btn[data-key]').forEach(bindButton);
-
-      // Start overlay to allow audio/focus on mobile
-      startBtn.addEventListener('click', ()=>{
-        focusGame();
-        setTimeout(()=>{ starter.style.display='none'; focusGame(); }, 50);
-      });
-      frame.addEventListener('load', ()=> setTimeout(focusGame, 50));
-
-      // Hide/Show controls
-      hideBtn.addEventListener('click', ()=>{
-        const visible = controls.style.display !== 'none';
-        if(visible){
-          controls.style.display='none';
-          hideBtn.textContent='Show Controls';
-          hideBtn.setAttribute('aria-pressed','true');
-        }else{
-          controls.style.display='';
-          hideBtn.textContent='Hide Controls';
-          hideBtn.setAttribute('aria-pressed','false');
-        }
-      });
-
-      // Fullscreen toggle
-      fullscreenBtn.addEventListener('click', async ()=>{
-        try{
-          if(document.fullscreenElement){
-            await document.exitFullscreen();
-          }else{
-            await (frame.requestFullscreen && frame.requestFullscreen());
-          }
-        }catch(e){}
-        focusGame();
-      });
-
-      // Prevent page scroll when using controls
-      ['touchstart','touchmove','touchend'].forEach(t =>
-        controls.addEventListener(t, e=>e.preventDefault(), {passive:false})
-      );
-    })();
-  </script>
+  <script defer src="wrapper.js"></script>
 </body>
 </html>
