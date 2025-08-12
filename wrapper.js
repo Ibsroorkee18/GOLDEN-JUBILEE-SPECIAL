@@ -113,7 +113,7 @@
     localStorage.setItem('wrap_vibrate', P.vibrate ? '1' : '0');
   }
   function applyPrefsToUI(){
-    // sliders/inputs
+    // form values
     snapSel.value = P.snap;
     sensInp.value = String(P.sensitivity);
     uiSizeInp.value = String(P.uiSize);
@@ -126,7 +126,7 @@
     spaceYInp.value = String(P.spaceY);
     vibrateChk.checked = !!P.vibrate;
 
-    // css vars
+    // CSS vars (these lock the positions/scales)
     document.documentElement.style.setProperty('--ui-scale', String(P.uiSize));
     document.documentElement.style.setProperty('--ui-opacity', String(P.uiOpacity));
     document.documentElement.style.setProperty('--pad-scale', String(P.padScale));
@@ -144,12 +144,11 @@
   }
   applyPrefsToUI();
 
-  // ---------- Fullscreen / orientation gate ----------
+  // ---------- Gate ----------
   enterFS.addEventListener('click', async () => {
     await enterFullscreen();
     await tryLockLandscape();
     updateGate();
-    // Placement step on first run or if ?place=1
     const forcePlace = (new URLSearchParams(location.search).get('place') === '1');
     if (!P.placed || forcePlace) startPlacement();
     focusGame();
@@ -180,7 +179,7 @@
     to.dispatchEvent(ev);
   }
   function keyDown(name){
-    if (placementActive) return; // don't send keys while placing
+    if (placementActive) return;
     const d = keyMap[name]; if(!d || down.has(name)) return;
     down.add(name);
     try {
@@ -210,14 +209,17 @@
     el.addEventListener('pointerout', e=>{ if(active) deactivate(e); });
   })(spaceBtn);
 
-  // START hides after first complete press
-  let spaceUsed = localStorage.getItem('wrap_space_used') === '1';
+  // ---------- START visibility (session-only) ----------
+  // IMPORTANT CHANGE: use sessionStorage so START is visible on every page load
+  let spaceUsed = sessionStorage.getItem('wrap_space_used') === '1';
   function updateSpaceVisibility(){ spaceBtn.classList.toggle('hidden', spaceUsed); }
-  updateSpaceVisibility();
+  // Always show START on first paint of a session:
+  spaceUsed = false; sessionStorage.setItem('wrap_space_used','0'); updateSpaceVisibility();
+
   spaceBtn.addEventListener('pointerup', () => {
     if (!spaceUsed && !placementActive) {
       spaceUsed = true;
-      localStorage.setItem('wrap_space_used','1');
+      sessionStorage.setItem('wrap_space_used','1');
       updateSpaceVisibility();
       toastMsg('Start hidden (use RESET to restore)');
     }
@@ -233,13 +235,13 @@
   const ro = new ResizeObserver(()=>{ rectPad = touchpad.getBoundingClientRect(); });
   ro.observe(touchpad);
 
-  function currentSmoothing(){ // higher sens -> snappier (lower smoothing)
-    const s = P.sensitivity;  // 0.6..1.5
+  function currentSmoothing(){
+    const s = P.sensitivity;
     return Math.max(0.14, Math.min(0.34, 0.24 - (s - 1) * 0.08));
   }
   function currentDeadzone(){
     const s = P.sensitivity;
-    const enter = 0.26 / Math.max(0.7, s);     // small DZ: good for diagonals
+    const enter = 0.26 / Math.max(0.7, s);
     return { enter, exit: enter * 0.72 };
   }
   function setOrigin(px, py){
@@ -258,7 +260,6 @@
     const dx = (px - (rectPad.left + cx)) / rx;
     const dy = (py - (rectPad.top  + cy)) / ry;
     const mag = Math.hypot(dx,dy) || 1;
-    // normalize into unit circle then apply sensitivity
     const nx = Math.max(-1, Math.min(1, dx / mag)) * Math.min(1, Math.abs(dx));
     const ny = Math.max(-1, Math.min(1, dy / mag)) * Math.min(1, Math.abs(dy));
     const scale = Math.max(0.6, Math.min(1.5, P.sensitivity));
@@ -276,13 +277,9 @@
   touchpad.addEventListener('pointercancel', onPadEnd, {passive:false});
   window.addEventListener('pointerup', onPadEnd, {passive:false});
 
-  const dir = { L:false, R:false, U:false, D:false };
   function updateKeys(nx, ny){
     if (placementActive) return;
     const { enter } = currentDeadzone();
-    // default: 8-way
-    [['ArrowLeft', nx < -enter], ['ArrowRight', nx > enter], ['ArrowUp', ny < -enter], ['ArrowDown', ny > enter]]
-      .forEach(([k,on]) => on ? keyDown(k) : keyUp(k));
     if (P.snap === 'smart'){
       const ax = Math.abs(nx), ay = Math.abs(ny);
       const s = (ax > ay)
@@ -290,9 +287,11 @@
         : { L:false, R:false, U: ny < -enter, D: ny > enter };
       [['ArrowLeft','L'],['ArrowRight','R'],['ArrowUp','U'],['ArrowDown','D']]
         .forEach(([k,c]) => { if (s[c]) keyDown(k); else keyUp(k); });
-    } else if (P.snap === 'off'){
-      // simple hysteresis
+      return;
+    }
+    if (P.snap === 'off'){
       const exit = enter * 0.72;
+      const dir = { L:false, R:false, U:false, D:false };
       function hyster(axisValue, posKey, negKey){
         const posPressed = dir[posKey], negPressed = dir[negKey];
         if (!posPressed && axisValue >  enter) { dir[posKey] = true;  keyDown(posKey); }
@@ -302,20 +301,21 @@
       }
       hyster(nx, 'ArrowRight', 'ArrowLeft');
       hyster(ny, 'ArrowDown',  'ArrowUp');
+      return;
     }
+    // default 'eight' (diagonals allowed)
+    [['ArrowLeft', nx < -enter], ['ArrowRight', nx > enter], ['ArrowUp', ny < -enter], ['ArrowDown', ny > enter]]
+      .forEach(([k,on]) => on ? keyDown(k) : keyUp(k));
   }
 
   function tick(){
-    // Smooth toward target (EMA)
     const SMOOTH = currentSmoothing();
     x += (tx - x) * SMOOTH;
     y += (ty - y) * SMOOTH;
 
-    // Clamp to unit circle
     const m = Math.hypot(x,y); let nx=x, ny=y;
     if (m > 1e-6 && m > 1){ nx = x/m; ny = y/m; }
 
-    // Move knob
     if (!rectPad) rectPad = touchpad.getBoundingClientRect();
     const OUTER = 0.90;
     const rx = rectPad.width*0.5*OUTER, ry = rectPad.height*0.5*OUTER;
@@ -323,23 +323,22 @@
     const py = (cy + ny*ry) / rectPad.height * 100;
     knob.style.left = px + '%'; knob.style.top = py + '%';
 
-    // Keys
     updateKeys(nx, ny);
-
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
-  // ---------- Placement mode (drag & pinch) ----------
-  let dragState = null; // { type:'pad'|'space', id, startX, startY, baseX, baseY }
-  let pinchState = null; // { startDist, baseScale }
+  // ---------- Placement mode (drag + pinch) ----------
+  let dragState = null;
+  let pinchState = null;
+  const activePointers = new Map();
 
   function startPlacement(){
     placementActive = true;
     document.body.classList.add('placing');
     placement.classList.remove('hidden');
-    // Make sure UI is visible
-    updateGate();
+    // show START during placement no matter what
+    spaceUsed = false; sessionStorage.setItem('wrap_space_used','0'); updateSpaceVisibility();
   }
   function endPlacement(save=true){
     placementActive = false;
@@ -351,24 +350,25 @@
       savePrefs();
       applyPrefsToUI();
       focusGame();
+      toastMsg('Controls saved');
     }
   }
 
-  // Drag start
+  // Only allow drag/pinch WHILE placing:
   function onDragStart(e){
+    if (!placementActive) return;
     const target = e.currentTarget.getAttribute('data-drag'); // 'pad' or 'space'
-    const id = e.pointerId;
     dragState = {
-      type: target, id,
+      type: target, id: e.pointerId,
       startX: e.clientX, startY: e.clientY,
       baseX: target==='pad' ? P.padX : P.spaceX,
       baseY: target==='pad' ? P.padY : P.spaceY
     };
-    e.currentTarget.setPointerCapture(id);
+    e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
   }
   function onDragMove(e){
-    if (!dragState || e.pointerId !== dragState.id) return;
+    if (!placementActive || !dragState || e.pointerId !== dragState.id) return;
     const dx_vw = (e.clientX - dragState.startX) / window.innerWidth * 100;
     const dy_vh = (e.clientY - dragState.startY) / window.innerHeight * 100;
     if (dragState.type === 'pad'){
@@ -382,15 +382,13 @@
     e.preventDefault();
   }
   function onDragEnd(e){
-    if (!dragState || e.pointerId !== dragState.id) return;
+    if (!placementActive || !dragState || e.pointerId !== dragState.id) return;
     dragState = null;
     e.preventDefault();
   }
 
-  // Pinch to scale the PAD
-  const activePointers = new Map();
   function onPadPointerDown(e){
-    if (e.pointerType !== 'touch') return; // pinch only for touch
+    if (!placementActive || e.pointerType !== 'touch') return;
     activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
     if (activePointers.size === 2){
       const pts = [...activePointers.values()];
@@ -398,7 +396,7 @@
     }
   }
   function onPadPointerMove(e){
-    if (!activePointers.has(e.pointerId)) return;
+    if (!placementActive || !activePointers.has(e.pointerId)) return;
     activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
     if (pinchState && activePointers.size === 2){
       const pts = [...activePointers.values()];
@@ -409,13 +407,14 @@
     }
   }
   function onPadPointerUp(e){
+    if (!placementActive) return;
     activePointers.delete(e.pointerId);
     if (activePointers.size < 2) pinchState = null;
   }
   function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-  // Attach drag listeners (only meaningful while placing)
+  // Attach listeners (they early-return when not placing)
   padDock.addEventListener('pointerdown', onDragStart);
   padDock.addEventListener('pointermove', onDragMove);
   padDock.addEventListener('pointerup', onDragEnd);
@@ -426,7 +425,6 @@
   spaceDock.addEventListener('pointerup', onDragEnd);
   spaceDock.addEventListener('pointercancel', onDragEnd);
 
-  // Pinch listeners on pad dock
   padDock.addEventListener('pointerdown', onPadPointerDown);
   padDock.addEventListener('pointermove', onPadPointerMove);
   padDock.addEventListener('pointerup', onPadPointerUp);
@@ -461,14 +459,12 @@
   // ---------- Reset game & restore START ----------
   resetBtn.addEventListener('click', () => {
     spaceUsed = false;
-    localStorage.setItem('wrap_space_used','0');
+    sessionStorage.setItem('wrap_space_used','0');
     updateSpaceVisibility();
 
-    // release held keys & recenter
     ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(keyUp);
     centerTarget();
 
-    // reload game
     try { const src = frame.src; frame.src = src; } catch(e){}
     toastMsg('Game reset');
   });
@@ -483,4 +479,7 @@
 
   // Same-origin hint (so key events reach game)
   try { void frame.contentDocument; } catch(e){ toastMsg('Host game & wrapper on same origin'); }
+
+  // Initial state
+  updateGate();
 })();
