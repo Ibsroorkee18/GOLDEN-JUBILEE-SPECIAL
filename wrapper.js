@@ -5,7 +5,6 @@
   const enterFS = document.getElementById('enterFS');
   const topbar = document.getElementById('topbar');
   const controls = document.getElementById('controls');
-  const placement = document.getElementById('placement');
   const toast = document.getElementById('toast');
 
   const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -13,17 +12,10 @@
   const openPlacement = document.getElementById('openPlacement');
   const resetBtn = document.getElementById('resetBtn');
 
+  const coach = document.getElementById('coach');
   const placeSet = document.getElementById('placeSet');
   const placeDefaults = document.getElementById('placeDefaults');
   const forceStart = document.getElementById('forceStart');
-
-  // Checklist bits
-  const padStatus = document.getElementById('padStatus');
-  const startStatus = document.getElementById('startStatus');
-  const editPadBtn = document.getElementById('editPad');
-  const movePadBtn = document.getElementById('movePad');
-  const editStartBtn = document.getElementById('editStart');
-  const moveStartBtn = document.getElementById('moveStart');
 
   // Editor
   const editorOverlay = document.getElementById('editorOverlay');
@@ -32,7 +24,6 @@
   const editOpacity = document.getElementById('editOpacity');
   const editorDone = document.getElementById('editorDone');
   const editorCancel = document.getElementById('editorCancel');
-  const finishMove = document.getElementById('finishMove');
 
   // Controls
   const padDock = document.getElementById('padDock');
@@ -47,21 +38,21 @@
 
   // ---------- Utils ----------
   const css = (k,v)=>document.documentElement.style.setProperty(k,v);
-  const getCSS = k => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(k));
+  const getCSSf = k => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(k));
   const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
   function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 1400); }
   function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch{} }
   function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
 
-  // ---- SINGLE declaration: startUsed (do not redeclare elsewhere) ----
+  // One source of truth (no redeclare warnings)
   let startUsed = false;
 
   // Device-aware defaults (one-time per load)
   (function tuneDefaults(){
-    const ss = Math.min(screen.width, screen.height); // short side
+    const ss = Math.min(screen.width, screen.height);
     const ua = navigator.userAgent || '';
-    let padScale = 1.22, startScale = 1.00;
-    if (ss <= 360) { padScale = 1.30; startScale = 1.10; } // small phones
+    let padScale = 1.24, startScale = 1.00;
+    if (ss <= 360) { padScale = 1.32; startScale = 1.12; } // small phones
     if (/iPhone|iPad|iPod/i.test(ua)) padScale += 0.06;   // iOS thumb bias
     css('--pad-scale', padScale);
     css('--start-scale', startScale);
@@ -111,76 +102,108 @@
   });
   landscapeBtn.addEventListener('click', tryLockLandscape);
 
-  // ---------- Placement flow ----------
+  // ---------- Placement flow (minimal HUD) ----------
   let placing = false;
   const setFlags = { pad:false, start:false };
-  function markStatus(){
-    const on = s => { s.classList.remove('off'); s.classList.add('on'); s.textContent = 'Set'; };
-    const off = s => { s.classList.remove('on'); s.classList.add('off'); s.textContent = 'Not set'; };
-    setFlags.pad ? on(padStatus) : off(padStatus);
-    setFlags.start ? on(startStatus) : off(startStatus);
+  function markTouched(type){
+    setFlags[type] = true;
     placeSet.disabled = !(setFlags.pad && setFlags.start);
   }
   function startPlacement(){
     placing = true;
     document.body.classList.add('placing');
-    placement.classList.remove('hidden');
-    showStartBtn(false);
-    setFlags.pad = false; setFlags.start = false; markStatus();
-    closeEditor(); stopMove(); // ensure clean state
+    coach.classList.remove('hidden');
+    showStartBtn(false);            // hide START during placement
+    setFlags.pad = false; setFlags.start = false;
+    placeSet.disabled = true;
   }
   function endPlacement(){
     placing = false;
     document.body.classList.remove('placing');
-    placement.classList.add('hidden');
-    closeEditor(); stopMove();
-    showStartBtn(true);
+    coach.classList.add('hidden');
+    closeEditor();
+    showStartBtn(true);             // reveal START after SET or force start
     focusGame();
   }
 
-  // Checklist actions
-  editPadBtn.addEventListener('click', () => openEditor('pad'));
-  editStartBtn.addEventListener('click', () => openEditor('start'));
-  movePadBtn.addEventListener('click', () => beginMove('pad'));
-  moveStartBtn.addEventListener('click', () => beginMove('start'));
-
-  // Defaults (also mark set)
+  // Defaults (also mark both set)
   placeDefaults.addEventListener('click', () => {
-    css('--pad-x','0vw'); css('--pad-y','0vh'); css('--pad-scale',1.22); css('--pad-opacity',0.92);
+    css('--pad-x','0vw'); css('--pad-y','0vh'); css('--pad-scale',1.24); css('--pad-opacity',0.92);
     css('--start-x','0vw'); css('--start-y','0vh'); css('--start-scale',1.00); css('--start-opacity',0.92);
-    setFlags.pad = true; setFlags.start = true; markStatus();
+    markTouched('pad'); markTouched('start');
   });
 
   // Force Start fallback
   forceStart.addEventListener('click', () => { endPlacement(); toastMsg('Controls set — press START'); });
 
-  // SET (strict)
+  // SET
   placeSet.addEventListener('click', () => {
-    if (placeSet.disabled){ toastMsg('Set both controls first'); return; }
+    if (placeSet.disabled){ toastMsg('Drag each control or edit them first'); return; }
     endPlacement();
     toastMsg('Controls set — press START');
   });
 
-  // ---------- Editor (centered) ----------
-  let editing = null; // 'pad' | 'start' | null
-  const editorState = { prev: null };
+  // ---------- Drag controls (always available while placing) ----------
+  function beginDrag(e){
+    if (!placing) return;
+    const type = e.currentTarget.getAttribute('data-drag'); // 'pad'|'start'
+    const id = e.pointerId;
+    const baseX = getCSSf(type==='pad'?'--pad-x':'--start-x');
+    const baseY = getCSSf(type==='pad'?'--pad-y':'--start-y');
+    const startX = e.clientX, startY = e.clientY;
 
+    e.currentTarget.setPointerCapture?.(id);
+
+    function move(ev){
+      if (ev.pointerId !== id) return;
+      const dx_vw = (ev.clientX - startX) / window.innerWidth * 100;
+      const dy_vh = (ev.clientY - startY) / window.innerHeight * 100;
+      if (type==='pad'){
+        css('--pad-x', clamp(baseX + dx_vw, -22, 22) + 'vw');
+        css('--pad-y', clamp(baseY + dy_vh, -14, 14) + 'vh');
+        markTouched('pad');
+      } else {
+        css('--start-x', clamp(baseX + dx_vw, -30, 30) + 'vw');
+        css('--start-y', clamp(baseY + dy_vh, -18, 18) + 'vh');
+        markTouched('start');
+      }
+      ev.preventDefault();
+    }
+    function up(ev){
+      if (ev.pointerId !== id) return;
+      e.currentTarget.removeEventListener('pointermove', move);
+      e.currentTarget.removeEventListener('pointerup', up);
+      e.currentTarget.removeEventListener('pointercancel', up);
+      ev.preventDefault();
+    }
+    e.currentTarget.addEventListener('pointermove', move, {passive:false});
+    e.currentTarget.addEventListener('pointerup', up, {passive:false});
+    e.currentTarget.addEventListener('pointercancel', up, {passive:false});
+    e.preventDefault();
+  }
+  padDock.addEventListener('pointerdown', beginDrag, {passive:false});
+  startDock.addEventListener('pointerdown', beginDrag, {passive:false});
+
+  // ---------- Editor (tap a control while placing) ----------
+  let editing = null; // 'pad' | 'start' | null
+  let prev = null;
   function openEditor(type){
     if (!placing) return;
     editing = type;
     editorTitle.textContent = type === 'pad' ? 'Edit Touchpad' : 'Edit START';
-    editorState.prev = {
-      scale: getCSS(type==='pad'?'--pad-scale':'--start-scale'),
-      opacity: getCSS(type==='pad'?'--pad-opacity':'--start-opacity'),
+    prev = {
+      scale: getCSSf(type==='pad'?'--pad-scale':'--start-scale'),
+      opacity: getCSSf(type==='pad'?'--pad-opacity':'--start-opacity'),
     };
-    editSize.value = editorState.prev.scale || (type==='pad'?1.22:1.00);
-    editOpacity.value = editorState.prev.opacity || 0.92;
+    editSize.value = prev.scale || (type==='pad'?1.24:1.00);
+    editOpacity.value = prev.opacity || 0.92;
     editorOverlay.classList.remove('hidden');
   }
-  function closeEditor(){
-    editorOverlay.classList.add('hidden');
-    editing = null;
-  }
+  function closeEditor(){ editorOverlay.classList.add('hidden'); editing = null; }
+
+  pad.addEventListener('click', () => openEditor('pad'));
+  startBtn.addEventListener('click', (e) => { if (placing){ openEditor('start'); e.stopPropagation(); } });
+
   editSize.addEventListener('input', e => {
     const v = clamp(parseFloat(e.target.value)||1, 0.9, 1.7);
     if (editing==='pad') css('--pad-scale', v); else if (editing==='start') css('--start-scale', v);
@@ -189,89 +212,13 @@
     const v = clamp(parseFloat(e.target.value)||0.92, 0.25, 1.0);
     if (editing==='pad') css('--pad-opacity', v); else if (editing==='start') css('--start-opacity', v);
   });
-  editorDone.addEventListener('click', () => {
-    if (editing==='pad') setFlags.pad = true;
-    if (editing==='start') setFlags.start = true;
-    markStatus();
-    closeEditor();
-  });
+  editorDone.addEventListener('click', () => { if (editing){ markTouched(editing); } closeEditor(); });
   editorCancel.addEventListener('click', () => {
     if (!editing) return closeEditor();
-    if (editing==='pad'){
-      css('--pad-scale', editorState.prev.scale || 1.22);
-      css('--pad-opacity', editorState.prev.opacity || 0.92);
-    } else {
-      css('--start-scale', editorState.prev.scale || 1.00);
-      css('--start-opacity', editorState.prev.opacity || 0.92);
-    }
+    if (editing==='pad'){ css('--pad-scale', prev.scale || 1.24); css('--pad-opacity', prev.opacity || 0.92); }
+    else { css('--start-scale', prev.scale || 1.00); css('--start-opacity', prev.opacity || 0.92); }
     closeEditor();
   });
-
-  // ---------- MOVE MODE (panel hides while moving) ----------
-  let moving = null; // 'pad' | 'start' | null
-  let dragId = null, dragBaseX=0, dragBaseY=0, dragStartX=0, dragStartY=0;
-
-  function beginMove(type){
-    if (!placing) return;
-    closeEditor();
-    moving = type;
-    // hide checklist panel while moving
-    placement.classList.add('hidden');
-    finishMove.classList.remove('hidden');
-    finishMove.textContent = `Done Moving ${type==='pad'?'Touchpad':'START'}`;
-    toastMsg(`Drag the ${type==='pad'?'touchpad':'START'} to where you want`);
-  }
-  function stopMove(){
-    moving = null;
-    dragId = null;
-    finishMove.classList.add('hidden');
-    // restore checklist panel
-    placement.classList.remove('hidden');
-  }
-  finishMove.addEventListener('click', () => {
-    if (moving==='pad') setFlags.pad = true;
-    if (moving==='start') setFlags.start = true;
-    markStatus();
-    stopMove();
-  });
-
-  function startDrag(e){
-    if (!placing || !moving) return;
-    const styleKeyX = moving==='pad' ? '--pad-x' : '--start-x';
-    const styleKeyY = moving==='pad' ? '--pad-y' : '--start-y';
-    dragId = e.pointerId;
-    dragBaseX = getCSS(styleKeyX);
-    dragBaseY = getCSS(styleKeyY);
-    dragStartX = e.clientX; dragStartY = e.clientY;
-    e.currentTarget.setPointerCapture?.(dragId);
-    e.preventDefault();
-  }
-  function moveDrag(e){
-    if (!placing || !moving || e.pointerId!==dragId) return;
-    const dx_vw = (e.clientX - dragStartX) / window.innerWidth * 100;
-    const dy_vh = (e.clientY - dragStartY) / window.innerHeight * 100;
-    if (moving==='pad'){
-      css('--pad-x', clamp(dragBaseX + dx_vw, -20, 20) + 'vw');
-      css('--pad-y', clamp(dragBaseY + dy_vh, -12, 12) + 'vh');
-    } else {
-      css('--start-x', clamp(dragBaseX + dx_vw, -30, 30) + 'vw');
-      css('--start-y', clamp(dragBaseY + dy_vh, -15, 15) + 'vh');
-    }
-    e.preventDefault();
-  }
-  function endDrag(e){
-    if (!placing || !moving || e.pointerId!==dragId) return;
-    dragId = null;
-    e.preventDefault();
-  }
-  padDock.addEventListener('pointerdown', startDrag, {passive:false});
-  padDock.addEventListener('pointermove', moveDrag, {passive:false});
-  padDock.addEventListener('pointerup', endDrag, {passive:false});
-  padDock.addEventListener('pointercancel', endDrag, {passive:false});
-  startDock.addEventListener('pointerdown', startDrag, {passive:false});
-  startDock.addEventListener('pointermove', moveDrag, {passive:false});
-  startDock.addEventListener('pointerup', endDrag, {passive:false});
-  startDock.addEventListener('pointercancel', endDrag, {passive:false});
 
   // ---------- START (Space) ----------
   bindPress(startBtn, 'Space', () => {
@@ -393,9 +340,12 @@
     toastMsg('Game reset');
   });
 
+  // Play HUD: open placement any time
+  openPlacement.addEventListener('click', () => startPlacement());
+
   // Focus when ready
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
 
-  // Same-origin hint
+  // Same-origin hint (key events need same origin)
   try { void frame.contentDocument; } catch { toastMsg('Host game & wrapper on same origin for controls'); }
 })();

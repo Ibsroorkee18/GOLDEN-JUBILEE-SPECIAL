@@ -24,7 +24,7 @@
     <div id="stage" aria-hidden="true">
       <iframe id="gameframe" allow="autoplay; fullscreen; gamepad"></iframe>
 
-      <!-- Top-right HUD -->
+      <!-- Top-right HUD (during play) -->
       <div id="topbar">
         <button id="landscape" class="btn" title="Lock landscape">⟲</button>
         <button id="fullscreenBtn" class="btn" title="Fullscreen">⤢</button>
@@ -35,14 +35,14 @@
       <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
-    <!-- Controls overlay -->
+    <!-- Controls overlay (always on top of the game) -->
     <div id="controls" aria-hidden="true" aria-label="Touch Controls">
-      <!-- START (SPACE) — movable -->
+      <!-- START (SPACE) — starts centered by default -->
       <div id="startDock" class="startDock" data-drag="start">
         <button id="startBtn" class="startBtn" data-key="Space">START</button>
       </div>
 
-      <!-- Circular touchpad — movable -->
+      <!-- Circular touchpad — bottom right by default -->
       <div id="padDock" class="padDock" data-drag="pad">
         <div id="pad" class="pad" aria-label="Touchpad">
           <div class="padRing"></div>
@@ -51,40 +51,17 @@
       </div>
     </div>
 
-    <!-- Placement overlay (ALWAYS on page load) -->
-    <div id="placement">
-      <div class="place-card">
-        <h3>Place your controls</h3>
-
-        <div class="checklist">
-          <div class="row">
-            <span class="tag">Touchpad</span>
-            <span id="padStatus" class="status off">Not set</span>
-            <div class="actions">
-              <button id="editPad" class="btn sm">Edit</button>
-              <button id="movePad" class="btn sm ghost">Move</button>
-            </div>
-          </div>
-          <div class="row">
-            <span class="tag">START</span>
-            <span id="startStatus" class="status off">Not set</span>
-            <div class="actions">
-              <button id="editStart" class="btn sm">Edit</button>
-              <button id="moveStart" class="btn sm ghost">Move</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="place-actions">
-          <button id="placeSet" class="btn" disabled>SET</button>
-          <button id="placeDefaults" class="btn ghost" type="button">Defaults</button>
-          <button id="forceStart" class="btn ghost" type="button" title="Use if your device blocks the set checks">Start Anyway</button>
-        </div>
-        <p class="hint">This placement appears on every page reload. RESET only restarts the game.</p>
+    <!-- Placement HUD (minimal, non-blocking) -->
+    <div id="coach" class="hidden">
+      <div class="coachTop">Drag <b>START</b> (center) & <b>Touchpad</b>. Tap a control to edit size/opacity.</div>
+      <div class="coachBottom">
+        <button id="placeDefaults" class="btn ghost" type="button">Defaults</button>
+        <a id="forceStart" class="link" href="javascript:void(0)">Start anyway</a>
+        <button id="placeSet" class="btn" disabled>SET</button>
       </div>
     </div>
 
-    <!-- Centered editor (for pad OR start) -->
+    <!-- Centered editor -->
     <div id="editorOverlay" class="hidden" role="dialog" aria-modal="true">
       <div class="editor">
         <div class="editorTitle" id="editorTitle">Edit Control</div>
@@ -97,8 +74,6 @@
       </div>
     </div>
 
-    <!-- Move mode bubble -->
-    <button id="finishMove" class="bubble hidden">Done Moving</button>
   </div>
 
   <script src="wrapper.js" defer></script>
