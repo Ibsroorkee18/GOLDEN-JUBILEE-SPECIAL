@@ -20,14 +20,14 @@
       </div>
     </div>
 
-    <!-- Game fills screen -->
+    <!-- Game fills the screen -->
     <div id="stage" aria-hidden="true">
       <iframe id="gameframe" allow="autoplay; fullscreen; gamepad"></iframe>
 
       <!-- Top-right HUD -->
       <div id="topbar">
         <button id="landscape" class="btn" title="Lock landscape">⟲</button>
-        <button id="fullscreenBtn" class="btn" title="Toggle fullscreen">⤢</button>
+        <button id="fullscreenBtn" class="btn" title="Fullscreen">⤢</button>
         <button id="openPlacement" class="btn" title="Adjust controls">⚙️</button>
         <button id="resetBtn" class="btn" title="Reset game & restore START">RESET</button>
       </div>
@@ -40,12 +40,6 @@
       <!-- START (SPACE) — movable -->
       <div id="startDock" class="startDock" data-drag="start">
         <button id="startBtn" class="startBtn" data-key="Space">START</button>
-        <!-- mini editor -->
-        <div class="miniEditor" id="startEditor" hidden>
-          <label>Size <input id="startSize" type="range" min="0.9" max="1.5" step="0.05"></label>
-          <label>Opacity <input id="startOpacity" type="range" min="0.3" max="1.0" step="0.05"></label>
-          <button class="miniClose">Done</button>
-        </div>
       </div>
 
       <!-- Circular touchpad — movable -->
@@ -53,12 +47,6 @@
         <div id="pad" class="pad" aria-label="Touchpad">
           <div class="padRing"></div>
           <div class="padKnob"></div>
-        </div>
-        <!-- mini editor -->
-        <div class="miniEditor" id="padEditor" hidden>
-          <label>Size <input id="padSize" type="range" min="0.9" max="1.5" step="0.05"></label>
-          <label>Opacity <input id="padOpacity" type="range" min="0.3" max="1.0" step="0.05"></label>
-          <button class="miniClose">Done</button>
         </div>
       </div>
     </div>
@@ -68,17 +56,30 @@
       <div class="place-card">
         <h3>Place your controls</h3>
         <ol>
-          <li><b>Drag</b> the round touchpad and the <b>START</b> button.</li>
-          <li><b>Tap</b> each control → adjust <b>size</b> & <b>opacity</b> → press <b>Done</b>.</li>
-          <li>When both are done, press <b>SET</b>. Then press <b>START</b> to begin.</li>
+          <li><b>Drag</b> the round touchpad and the <b>START</b> button into comfy spots.</li>
+          <li><b>Tap</b> a control to tweak <b>size</b> & <b>opacity</b>, then hit <b>Done</b>.</li>
+          <li>When both are set, press <b>SET</b>. Then press <b>START</b> to begin.</li>
         </ol>
         <div class="place-actions">
           <button id="placeSet" class="btn" disabled>SET</button>
           <button id="placeDefaults" class="btn" type="button">Defaults</button>
         </div>
-        <p class="hint">This setup shows on every reload. RESET only restarts the game.</p>
+        <p class="hint">This placement shows on every page reload. RESET just restarts your game.</p>
       </div>
     </div>
+
+    <!-- Centered editor (for pad or start) -->
+    <div id="editorOverlay" class="hidden" role="dialog" aria-modal="true">
+      <div class="editor">
+        <div class="editorTitle" id="editorTitle">Edit Control</div>
+        <label>Size <input id="editSize" type="range" min="0.9" max="1.6" step="0.05"></label>
+        <label>Opacity <input id="editOpacity" type="range" min="0.3" max="1.0" step="0.05"></label>
+        <div class="editorActions">
+          <button id="editorDone" class="btn">Done</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="wrapper.js" defer></script>
