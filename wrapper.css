@@ -1,24 +1,27 @@
-/* Game Boy–style skin + peak mobile controls (no settings needed) */
+/* Landscape-only, Game Boy vibe, peak mobile controls */
 :root{
-  /* defaults tuned for phones */
-  --ui-scale: 1.4;                 /* overall control size */
-  --ui-opacity: 0.98;              /* control bar opacity */
-  --zone-size: min(60vmin, 70vw);  /* touch zone square */
-  --ring-size: min(46vmin, 58vw);  /* circle inside zone */
-  --knob-size: 36%;                /* knob diameter relative to ring */
-  --btn-size: clamp(72px, 18vmin, 120px);
+  /* tuned defaults */
+  --ui-scale: 1.35;                 /* overall control size */
+  --ui-opacity: 0.98;               /* control bar opacity */
+  --zone-size: min(54vmin, 50vw);   /* touchpad base size (square) */
+  --ring-size: min(44vmin, 42vw);   /* inner circle */
+  --knob-size: 36%;                 /* knob diameter relative to ring */
+  --btn-size: clamp(70px, 16vmin, 120px);
+
+  /* Pad placement & scale (editable) */
+  --pad-scale: 1;                   /* 0.9..1.4 */
+  --pad-offset-x: 0vw;              /* -20vw..20vw */
+  --pad-offset-y: 0vh;              /* -12vh..12vh */
 
   /* Game Boy vibe */
-  --body: #bfc5a7;
-  --screen: #2b3a1a;
-  --screen-glow: #3d5226;
+  --body: #bfc5a7;  --screen: #2b3a1a;  --screen-glow: #3d5226;
 
   --glass: rgba(18,18,18,0.45);
-  --glass-strong: rgba(18,18,18,0.65);
+  --glass-strong: rgba(18,18,18,0.72);
   --border: rgba(255,255,255,0.28);
   --active: rgba(255,255,255,0.5);
 
-  --safe-bottom: env(safe-area-inset-bottom, 12px);
+  --safe-bottom: env(safe-area-inset-bottom, 10px);
   --safe-top: env(safe-area-inset-top, 10px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -28,20 +31,30 @@ html,body{
 }
 #wrap{position:fixed;inset:0;display:grid;grid-template-rows:1fr auto}
 
+/* Portrait blocker (force landscape) */
+#rotateBlocker{
+  position:fixed; inset:0; display:none; place-items:center; z-index:9999;
+  background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.85), rgba(0,0,0,.95));
+}
+#rotateBlocker .rb-card{padding:18px 22px;border-radius:18px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(6px);text-align:center}
+#rotateBlocker .rb-title{font-weight:800;margin-bottom:6px}
+#rotateBlocker .rb-sub{opacity:.85}
+@media (orientation:portrait){ #rotateBlocker{ display:grid; } }
+
 /* Stage / Game frame with bezel */
 #stage{position:relative;overflow:hidden;background:var(--body)}
 .bezel{
-  position:absolute;inset:0;display:grid;place-items:center;padding:clamp(8px,2.5vmin,18px);
+  position:absolute; inset:0; display:grid; place-items:center; padding:clamp(8px,2.5vmin,18px);
   background: radial-gradient(180vmax 120vmax at 30% -20%, #d4d9be 10%, var(--body) 60%, #aab094 100%);
 }
 #gameframe{
-  width:100%;height:100%;border:0;background:linear-gradient(180deg,var(--screen-glow),var(--screen));
+  width:100%; height:100%; border:0; background:linear-gradient(180deg,var(--screen-glow),var(--screen));
   border-radius: clamp(8px, 1.6vmin, 14px);
   box-shadow: 0 0 0 4px rgba(0,0,0,0.15) inset, 0 14px 26px rgba(0,0,0,0.35);
 }
 
-/* Starter overlay */
-#starter{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.78),rgba(0,0,0,.92));z-index:10}
+/* Starter */
+#starter{position:absolute; inset:0; display:grid; place-items:center; background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.78),rgba(0,0,0,.92)); z-index:10}
 #starter .card{padding:18px 22px;text-align:center;border-radius:18px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(6px)}
 #starter .title{font-weight:800;margin-bottom:6px}
 #starter .sub{opacity:.8;margin-bottom:12px}
@@ -52,79 +65,95 @@ html,body{
 .btn:active,.btn.active{background:var(--active);border-color:#fff}
 
 /* Top bar */
-#topbar{position:absolute;left:10px;right:10px;top:var(--safe-top);display:flex;gap:10px;justify-content:flex-end;z-index:5}
+#topbar{position:absolute;right:10px;top:var(--safe-top);display:flex;gap:10px;z-index:5}
 #topbar .btn{padding:6px 10px;border-radius:999px}
 
-/* Control bar */
+/* Controls bar (landscape) */
 #controls{
   position:relative;
-  padding:14px 16px calc(22px + var(--safe-bottom));
+  padding:12px 16px calc(16px + var(--safe-bottom));
   background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.25));
   touch-action:none;
 }
 #controlInner{
-  display:flex;justify-content:center;align-items:flex-end;
-  gap: clamp(18px, 4vw, 44px);
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap: clamp(16px, 3.5vw, 40px);
   transform: scale(var(--ui-scale)); transform-origin: bottom center;
-  opacity: var(--ui-opacity);
-  transition: transform .15s ease, opacity .15s ease;
+  opacity: var(--ui-opacity); transition: transform .15s ease, opacity .15s ease;
 }
 
-/* Touch zone (square) with circular play area */
-.touchzone{
-  position:relative;width:var(--zone-size);height:var(--zone-size);max-width:620px;max-height:620px;border-radius:24px;
+.leftActions { display:grid; align-items:end; }
+.leftActions .action{
+  width:var(--btn-size); height:var(--btn-size);
+  font-size: clamp(18px, 5.5vmin, 24px); font-weight:900;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
+  background: rgba(255,255,255,0.14);
+}
+
+/* Right pad dock: positionable + scalable */
+.rightPad { position:relative; min-width: min(50vw, 60vmin); display:grid; justify-items:end; }
+.padDock{
+  transform:
+    translate(var(--pad-offset-x), var(--pad-offset-y))
+    scale(var(--pad-scale));
+  transform-origin: bottom right;
+}
+
+/* Touchpad */
+.touchpad{ position:relative; width:var(--zone-size); height:var(--zone-size); border-radius:22px;
   background: var(--glass-strong); border:1px solid var(--border); backdrop-filter: blur(6px);
   box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35);
   overflow:hidden;
 }
-.touchzone .ring{
-  position:absolute;width:var(--ring-size);height:var(--ring-size);border-radius:50%;
-  border:1px solid var(--border);
-  background: rgba(255,255,255,0.06);
-  left: 50%; top: 50%; transform: translate(-50%,-50%);
-  pointer-events:none;
+.touchpad .ring{
+  position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
+  border:1px solid var(--border); background: rgba(255,255,255,0.06);
+  left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events:none;
 }
-.touchzone .knob{
-  position:absolute;width:var(--ring-size);height:var(--ring-size);border-radius:50%;
-  left: 50%; top: 50%; transform: translate(-50%,-50%);
-  pointer-events:none;
+.touchpad .knob{
+  position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
+  left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events:none;
 }
-.touchzone .knob::after{
+.touchpad .knob::after{
   content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width: var(--knob-size); height: var(--knob-size); border-radius:50%;
   background: rgba(255,255,255,0.14); border:1px solid var(--border);
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Actions */
-.actions{display:grid;grid-template-columns:1fr;gap:14px;align-items:end}
-.actions .action{
-  width:var(--btn-size); height:var(--btn-size);
-  font-size: clamp(18px, 5.5vmin, 24px); font-weight:900;
-  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
-  background: rgba(255,255,255,0.14);
+/* D-Pad */
+.dpad{
+  position:relative; width:var(--zone-size); height:var(--zone-size);
+  background: var(--glass-strong); border:1px solid var(--border); border-radius:22px; backdrop-filter: blur(6px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35);
 }
-.actions .full{
-  width:var(--btn-size); height:calc(var(--btn-size) * .6); border-radius:14px;
-}
-/* Slightly different tint for reset to stand out */
-.actions .reset{
-  background: rgba(255, 120, 120, 0.18);
-  border-color: rgba(255,255,255,0.35);
-}
-
-/* Utility */
-.hidden{ display:none !important; }
+.dpad .seg{ position:absolute; background:rgba(255,255,255,0.12); border:1px solid var(--border); border-radius:16px; }
+.dpad .seg.up{    left:30%; top:6%; width:40%; height:34%;}
+.dpad .seg.down{  left:30%; bottom:6%; width:40%; height:34%;}
+.dpad .seg.left{  top:33%; left:6%; width:34%; height:40%;}
+.dpad .seg.right{ top:33%; right:6%; width:34%; height:40%;}
+.dpad .seg:active, .dpad .seg.active{ background:var(--active); border-color:#fff }
+.dpad .nub{ position:absolute; left:50%; top:50%; width:26%; height:26%; transform:translate(-50%,-50%); border-radius:50%;
+  background: rgba(255,255,255,0.10); border:1px dashed rgba(255,255,255,0.18);}
 
 /* Toast */
 #toast{
-  position:absolute;left:50%;top:var(--safe-top);transform:translateX(-50%);
-  background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;
-  opacity:0;pointer-events:none;transition:opacity .2s;
+  position:absolute; left:50%; top:var(--safe-top); transform:translateX(-50%);
+  background:rgba(0,0,0,0.7); color:#fff; padding:8px 12px; border-radius:999px; font-size:12px;
+  opacity:0; pointer-events:none; transition:opacity .2s;
 }
 #toast.show{opacity:1}
 
-/* Orientation tweaks */
-@media (orientation: landscape){
-  :root{ --ui-scale: 1.2; }
+/* Settings dialog */
+dialog#settings{
+  width:min(560px, 94vw); border:1px solid var(--border); border-radius:16px;
+  padding:16px; background:var(--glass); color:#fff; backdrop-filter:blur(8px)
 }
+dialog::backdrop{ background:rgba(0,0,0,.5) }
+#settings h3{ margin:0 0 10px 0 }
+#settings .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0 }
+#settings input[type="range"], #settings select{ width:54% }
+#settings .buttons{ justify-content:flex-end }
+#settings .btn{ padding:8px 14px }
+#settings .btn.ghost{ background:rgba(255,255,255,0.08) }
+#settings .hint{ opacity:.75; margin-top:8px; font-size:.9em }
