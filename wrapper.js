@@ -13,6 +13,10 @@
   const resetPrefs = document.getElementById('resetPrefs');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
 
+  const modeSel = document.getElementById('mode');   // touchpad vs fixed
+  const snapSel = document.getElementById('snap');   // off/four/eight
+  const vibrateChk = document.getElementById('vibrate');
+
   // Resolve game src
   const params = new URLSearchParams(location.search);
   frame.src = params.get('src') || 'game.html';
@@ -20,8 +24,11 @@
   // Prefs
   const P = {
     lefty: localStorage.getItem('wrap_lefty') === '1',
-    size: parseFloat(localStorage.getItem('wrap_size') || '1.25'),
-    opacity: parseFloat(localStorage.getItem('wrap_opacity') || '0.95')
+    size: parseFloat(localStorage.getItem('wrap_size') || '1.3'),
+    opacity: parseFloat(localStorage.getItem('wrap_opacity') || '0.96'),
+    mode: localStorage.getItem('wrap_mode') || 'touchpad',
+    snap: localStorage.getItem('wrap_snap') || 'off',
+    vibrate: localStorage.getItem('wrap_vibrate') !== '0' // default on
   };
   function applyPrefs(){
     document.body.classList.toggle('lefty', P.lefty);
@@ -30,13 +37,14 @@
     lefty.checked = P.lefty;
     uiSize.value = String(P.size);
     uiOpacity.value = String(P.opacity);
+    modeSel.value = P.mode;
+    snapSel.value = P.snap;
+    vibrateChk.checked = !!P.vibrate;
   }
   applyPrefs();
 
-  // Focus helpers
-  function focusGame(){
-    try { frame.focus(); frame.contentWindow && frame.contentWindow.focus(); } catch(e){}
-  }
+  // Focus helper
+  function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch(e){} }
 
   // Key mapping + state
   const keyMap = {
@@ -60,7 +68,7 @@
     try {
       const doc = frame.contentDocument || frame.contentWindow.document;
       dispatch(doc,'keydown',data); dispatch(frame.contentWindow,'keydown',data);
-      if (navigator.vibrate) navigator.vibrate(8);
+      if (P.vibrate && navigator.vibrate) navigator.vibrate(8);
     } catch(e){}
   }
   function keyUp(name){
@@ -72,7 +80,7 @@
     } catch(e){}
   }
 
-  // Bind SPACE/ENTER buttons
+  // Bind SPACE/ENTER
   document.querySelectorAll('[data-key]').forEach(el => {
     const name = el.getAttribute('data-key'); let active = false;
     const activate = e => { e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active = true; keyDown(name); };
@@ -83,116 +91,205 @@
     el.addEventListener('pointerout', e => { if(active) deactivate(e); });
   });
 
-  // Thumb stick logic
-  const stick = document.getElementById('stick');
+  // Touchpad / Fixed stick logic
+  const zone = document.getElementById('touchzone');
+  const ring = document.getElementById('ring');
   const knob = document.getElementById('knob');
+
+  const SMOOTHING = 0.24;    // EMA smoothing (higher = smoother)
+  const OUTER     = 0.90;    // knob travel within ring radius
+  const DZ_ENTER  = 0.28;    // deadzone enter
+  const DZ_EXIT   = 0.20;    // deadzone exit (hysteresis)
+
   let tracking = false, pid = null;
+  let cx = 0, cy = 0;        // current origin (px in zone)
+  let tx = 0, ty = 0;        // target normalized vec -1..1
+  let x = 0,  y = 0;         // filtered vec
+  const dir = { L:false, R:false, U:false, D:false };
 
-  function centerKnob(smooth=true){
-    knob.style.transition = smooth ? 'left .08s ease, top .08s ease' : 'none';
-    knob.style.left = '50%'; knob.style.top = '50%';
+  function setOrigin(px, py){
+    const r = zone.getBoundingClientRect();
+    cx = Math.max(r.left, Math.min(r.right, px)) - r.left;
+    cy = Math.max(r.top,  Math.min(r.bottom,py)) - r.top;
+    ring.style.left = (cx / r.width * 100) + '%';
+    ring.style.top  = (cy / r.height * 100) + '%';
+    knob.style.left = (cx / r.width * 100) + '%';
+    knob.style.top  = (cy / r.height * 100) + '%';
   }
-  centerKnob(false);
 
-  function setKeysFromVector(nx, ny, dz=0.28){ // deadzone ~28% radius feels good
-    const left  = nx < -dz, right = nx > dz, up = ny < -dz, down = ny > dz;
-    // update keys
-    [['ArrowLeft', left], ['ArrowRight', right], ['ArrowUp', up], ['ArrowDown', down]].forEach(([k, on])=>{
-      if (on) keyDown(k); else keyUp(k);
-    });
-  }
-
-  function handleMove(clientX, clientY){
-    const r = stick.getBoundingClientRect();
-    const cx = r.left + r.width/2, cy = r.top + r.height/2;
-    const dx = clientX - cx; const dy = clientY - cy;
-    const max = r.width/2 * 0.9;          // clamp inside ring
+  function vectorFrom(px, py){
+    const r = zone.getBoundingClientRect();
+    const rx = r.width  * 0.5 * OUTER;
+    const ry = r.height * 0.5 * OUTER;
+    // normalize to -1..1 from current origin
+    const dx = (px - (r.left + cx)) / rx;
+    const dy = (py - (r.top  + cy)) / ry;
     const mag = Math.hypot(dx, dy) || 1;
-    const clamp = Math.min(mag, max);
-    const ux = dx / mag, uy = dy / mag;
-    const px = cx + ux * clamp, py = cy + uy * clamp;
-
-    knob.style.transition = 'none';
-    knob.style.left = ((px - r.left) / r.width * 100) + '%';
-    knob.style.top  = ((py - r.top ) / r.height * 100) + '%';
-
-    const nx = (dx / (r.width/2));   // normalized -1..1
-    const ny = (dy / (r.height/2));
-    setKeysFromVector(nx, ny);
+    const nx = Math.max(-1, Math.min(1, dx / mag)) * Math.min(1, Math.abs(dx));
+    const ny = Math.max(-1, Math.min(1, dy / mag)) * Math.min(1, Math.abs(dy));
+    return { nx, ny, mag: Math.min(1, mag) };
   }
 
-  stick.addEventListener('pointerdown', e => {
-    tracking = true; pid = e.pointerId; stick.setPointerCapture(pid);
-    handleMove(e.clientX, e.clientY);
-  });
-  stick.addEventListener('pointermove', e => {
+  function setTargetFromEvent(e){
+    const v = vectorFrom(e.clientX, e.clientY);
+    tx = v.nx * Math.min(1, v.mag);
+    ty = v.ny * Math.min(1, v.mag);
+  }
+
+  function centerTarget(){
+    tx = 0; ty = 0;
+  }
+
+  zone.addEventListener('pointerdown', e => {
+    tracking = true; pid = e.pointerId;
+    if (P.mode === 'touchpad') setOrigin(e.clientX, e.clientY);
+    else { // fixed: center
+      const r = zone.getBoundingClientRect();
+      setOrigin(r.left + r.width/2, r.top + r.height/2);
+    }
+    setTargetFromEvent(e);
+  }, { passive:false });
+
+  zone.addEventListener('pointermove', e => {
     if (!tracking || e.pointerId !== pid) return;
-    handleMove(e.clientX, e.clientY);
-  });
+    setTargetFromEvent(e);
+  }, { passive:false });
+
   const end = e => {
     if (!tracking || (pid!==null && e.pointerId && e.pointerId !== pid)) return;
-    tracking = false; pid = null;
-    centerKnob(true);
-    // release all arrow keys
-    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].forEach(keyUp);
+    tracking = false; pid = null; centerTarget();
   };
-  stick.addEventListener('pointerup', end);
-  stick.addEventListener('pointercancel', end);
-  window.addEventListener('pointerup', end); // safety
+  zone.addEventListener('pointerup', end, { passive:false });
+  zone.addEventListener('pointercancel', end, { passive:false });
+  window.addEventListener('pointerup', end, { passive:false });
 
-  // Starter overlay
+  // Hysteresis per axis
+  function applyHysteresis(axisValue, posKey, negKey){
+    const posPressed = dir[posKey], negPressed = dir[negKey];
+    if (!posPressed && axisValue >  DZ_ENTER) { dir[posKey] = true;  keyDown(posKey); }
+    if ( posPressed && axisValue <= DZ_EXIT)  { dir[posKey] = false; keyUp(posKey);   }
+    if (!negPressed && axisValue < -DZ_ENTER) { dir[negKey] = true;  keyDown(negKey); }
+    if ( negPressed && axisValue >= -DZ_EXIT) { dir[negKey] = false; keyUp(negKey);   }
+  }
+
+  function snap4(nx, ny){
+    // choose dominant axis only
+    if (Math.abs(nx) > Math.abs(ny)) {
+      return { L: nx < -DZ_ENTER, R: nx > DZ_ENTER, U: false, D:false };
+    } else {
+      return { L: false, R: false, U: ny < -DZ_ENTER, D: ny > DZ_ENTER };
+    }
+  }
+  function snap8(nx, ny){
+    return {
+      L: nx < -DZ_ENTER, R: nx > DZ_ENTER,
+      U: ny < -DZ_ENTER, D: ny > DZ_ENTER
+    };
+  }
+
+  function updateKeys(nx, ny){
+    if (snapSel.value === 'four'){
+      const s = snap4(nx, ny);
+      [['ArrowLeft','L'],['ArrowRight','R'],['ArrowUp','U'],['ArrowDown','D']].forEach(([k,c]) => {
+        if (s[c]) keyDown(k); else keyUp(k);
+      });
+      return;
+    }
+    if (snapSel.value === 'eight'){
+      const s = snap8(nx, ny);
+      [['ArrowLeft','L'],['ArrowRight','R'],['ArrowUp','U'],['ArrowDown','D']].forEach(([k,c]) => {
+        if (s[c]) keyDown(k); else keyUp(k);
+      });
+      return;
+    }
+    // Off: free with hysteresis
+    applyHysteresis(nx, 'ArrowRight', 'ArrowLeft');
+    applyHysteresis(ny, 'ArrowDown',  'ArrowUp');
+  }
+
+  // Animation loop
+  function tick(){
+    // Smooth toward target
+    x += (tx - x) * SMOOTHING;
+    y += (ty - y) * SMOOTHING;
+
+    // clamp
+    const m = Math.hypot(x,y);
+    let nx = x, ny = y;
+    if (m > 1e-6 && m > 1){ nx = x/m; ny = y/m; }
+
+    // place knob relative to origin
+    const r = zone.getBoundingClientRect();
+    const rx = r.width  * 0.5 * OUTER;
+    const ry = r.height * 0.5 * OUTER;
+    const px = (cx + nx * rx) / r.width  * 100;
+    const py = (cy + ny * ry) / r.height * 100;
+    knob.style.left = px + '%';
+    knob.style.top  = py + '%';
+
+    // update keys
+    updateKeys(nx, ny);
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // Starter / Fullscreen / Settings
   startBtn.addEventListener('click', () => {
     focusGame();
     setTimeout(() => { starter.style.display = 'none'; focusGame(); }, 50);
   });
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
 
-  // Hide/Show controls
   toggleControls.addEventListener('click', () => {
     const hidden = controls.style.display === 'none';
     controls.style.display = hidden ? '' : 'none';
     toggleControls.setAttribute('aria-pressed', hidden ? 'false' : 'true');
   });
 
-  // Fullscreen
   fullscreenBtn.addEventListener('click', async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else if (frame.requestFullscreen) await frame.requestFullscreen();
-    } catch(e){}
+    try { if (document.fullscreenElement) await document.exitFullscreen();
+          else if (frame.requestFullscreen) await frame.requestFullscreen(); } catch(e){}
     focusGame();
   });
 
-  // Settings
   openSettings.addEventListener('click', () => settingsDlg.showModal());
   settingsDlg.addEventListener('close', () => focusGame());
+
+  // Save settings
   lefty.addEventListener('change', e => {
-    const v = !!e.target.checked;
-    localStorage.setItem('wrap_lefty', v ? '1' : '0');
-    P.lefty = v;
-    document.body.classList.toggle('lefty', v);
+    P.lefty = !!e.target.checked; localStorage.setItem('wrap_lefty', P.lefty ? '1' : '0');
+    document.body.classList.toggle('lefty', P.lefty);
   });
   uiSize.addEventListener('input', e => {
-    const v = parseFloat(e.target.value || '1.25');
-    localStorage.setItem('wrap_size', String(v));
-    document.documentElement.style.setProperty('--ui-scale', String(v));
+    P.size = parseFloat(e.target.value || '1.3'); localStorage.setItem('wrap_size', String(P.size));
+    document.documentElement.style.setProperty('--ui-scale', String(P.size));
   });
   uiOpacity.addEventListener('input', e => {
-    const v = parseFloat(e.target.value || '0.95');
-    localStorage.setItem('wrap_opacity', String(v));
-    document.documentElement.style.setProperty('--ui-opacity', String(v));
+    P.opacity = parseFloat(e.target.value || '0.96'); localStorage.setItem('wrap_opacity', String(P.opacity));
+    document.documentElement.style.setProperty('--ui-opacity', String(P.opacity));
+  });
+  modeSel.addEventListener('change', e => {
+    P.mode = e.target.value; localStorage.setItem('wrap_mode', P.mode);
+  });
+  snapSel.addEventListener('change', e => {
+    P.snap = e.target.value; localStorage.setItem('wrap_snap', P.snap);
+  });
+  vibrateChk.addEventListener('change', e => {
+    P.vibrate = !!e.target.checked; localStorage.setItem('wrap_vibrate', P.vibrate ? '1':'0');
   });
   resetPrefs.addEventListener('click', () => {
     localStorage.removeItem('wrap_lefty');
     localStorage.removeItem('wrap_size');
     localStorage.removeItem('wrap_opacity');
-    document.body.classList.remove('lefty');
-    document.documentElement.style.setProperty('--ui-scale', '1.25');
-    document.documentElement.style.setProperty('--ui-opacity', '0.95');
-    lefty.checked = false; uiSize.value = '1.25'; uiOpacity.value = '0.95';
+    localStorage.removeItem('wrap_mode');
+    localStorage.removeItem('wrap_snap');
+    localStorage.removeItem('wrap_vibrate');
+    P.lefty=false; P.size=1.3; P.opacity=0.96; P.mode='touchpad'; P.snap='off'; P.vibrate=true;
+    applyPrefs();
   });
 
-  // Prevent scroll while touching controls
+  // Prevent scroll while using controls
   ['touchstart','touchmove','touchend'].forEach(t =>
     controls.addEventListener(t, e => e.preventDefault(), { passive:false })
   );
