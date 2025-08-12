@@ -51,6 +51,10 @@
   const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
   function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 1400); }
   function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch{} }
+  function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
+
+  // ---- SINGLE declaration: startUsed (do not redeclare elsewhere) ----
+  let startUsed = false;
 
   // Device-aware defaults (one-time per load)
   (function tuneDefaults(){
@@ -93,12 +97,11 @@
   document.addEventListener('webkitfullscreenchange', updateGate);
   updateGate();
 
-  // Enter app
   enterFS.addEventListener('click', async () => {
     await enterFullscreen();
     await tryLockLandscape();
     updateGate();
-    startPlacement(); // ALWAYS on every page load
+    startPlacement(); // ALWAYS on load
     focusGame();
   });
   fullscreenBtn.addEventListener('click', async () => {
@@ -123,18 +126,14 @@
     document.body.classList.add('placing');
     placement.classList.remove('hidden');
     showStartBtn(false);
-    // reset flags each time you enter placement
     setFlags.pad = false; setFlags.start = false; markStatus();
-    // close editor/move if any left hanging
-    closeEditor();
-    stopMove();
+    closeEditor(); stopMove(); // ensure clean state
   }
   function endPlacement(){
     placing = false;
     document.body.classList.remove('placing');
     placement.classList.add('hidden');
-    closeEditor();
-    stopMove();
+    closeEditor(); stopMove();
     showStartBtn(true);
     focusGame();
   }
@@ -152,7 +151,7 @@
     setFlags.pad = true; setFlags.start = true; markStatus();
   });
 
-  // Force Start fallback (for any weird device)
+  // Force Start fallback
   forceStart.addEventListener('click', () => { endPlacement(); toastMsg('Controls set — press START'); });
 
   // SET (strict)
@@ -164,7 +163,7 @@
 
   // ---------- Editor (centered) ----------
   let editing = null; // 'pad' | 'start' | null
-  const editorState = { size: 1, opacity: 0.92, prev: null };
+  const editorState = { prev: null };
 
   function openEditor(type){
     if (!placing) return;
@@ -182,6 +181,14 @@
     editorOverlay.classList.add('hidden');
     editing = null;
   }
+  editSize.addEventListener('input', e => {
+    const v = clamp(parseFloat(e.target.value)||1, 0.9, 1.7);
+    if (editing==='pad') css('--pad-scale', v); else if (editing==='start') css('--start-scale', v);
+  });
+  editOpacity.addEventListener('input', e => {
+    const v = clamp(parseFloat(e.target.value)||0.92, 0.25, 1.0);
+    if (editing==='pad') css('--pad-opacity', v); else if (editing==='start') css('--start-opacity', v);
+  });
   editorDone.addEventListener('click', () => {
     if (editing==='pad') setFlags.pad = true;
     if (editing==='start') setFlags.start = true;
@@ -190,7 +197,6 @@
   });
   editorCancel.addEventListener('click', () => {
     if (!editing) return closeEditor();
-    // revert
     if (editing==='pad'){
       css('--pad-scale', editorState.prev.scale || 1.22);
       css('--pad-opacity', editorState.prev.opacity || 0.92);
@@ -200,30 +206,27 @@
     }
     closeEditor();
   });
-  editSize.addEventListener('input', e => {
-    const v = clamp(parseFloat(e.target.value)||1, 0.9, 1.7);
-    if (editing==='pad') css('--pad-scale', v);
-    else if (editing==='start') css('--start-scale', v);
-  });
-  editOpacity.addEventListener('input', e => {
-    const v = clamp(parseFloat(e.target.value)||0.92, 0.25, 1.0);
-    if (editing==='pad') css('--pad-opacity', v);
-    else if (editing==='start') css('--start-opacity', v);
-  });
 
-  // ---------- Move mode (drag one control, then Done) ----------
+  // ---------- MOVE MODE (panel hides while moving) ----------
   let moving = null; // 'pad' | 'start' | null
   let dragId = null, dragBaseX=0, dragBaseY=0, dragStartX=0, dragStartY=0;
+
   function beginMove(type){
     if (!placing) return;
     closeEditor();
     moving = type;
+    // hide checklist panel while moving
+    placement.classList.add('hidden');
     finishMove.classList.remove('hidden');
     finishMove.textContent = `Done Moving ${type==='pad'?'Touchpad':'START'}`;
+    toastMsg(`Drag the ${type==='pad'?'touchpad':'START'} to where you want`);
   }
   function stopMove(){
     moving = null;
+    dragId = null;
     finishMove.classList.add('hidden');
+    // restore checklist panel
+    placement.classList.remove('hidden');
   }
   finishMove.addEventListener('click', () => {
     if (moving==='pad') setFlags.pad = true;
@@ -261,7 +264,6 @@
     dragId = null;
     e.preventDefault();
   }
-  // Attach to BOTH docks (drag only during move mode)
   padDock.addEventListener('pointerdown', startDrag, {passive:false});
   padDock.addEventListener('pointermove', moveDrag, {passive:false});
   padDock.addEventListener('pointerup', endDrag, {passive:false});
@@ -271,19 +273,16 @@
   startDock.addEventListener('pointerup', endDrag, {passive:false});
   startDock.addEventListener('pointercancel', endDrag, {passive:false});
 
-  // ---------- On-screen START (Space) ----------
-  let startUsed = false;
-  function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
-  showStartBtn(false); // visible only after SET / forceStart
+  // ---------- START (Space) ----------
   bindPress(startBtn, 'Space', () => {
     if (!placing && !startUsed) {
       startUsed = true;
-      showStartBtn(false); // hide after first press
+      showStartBtn(false);
       toastMsg('Start hidden (RESET to restore)');
     }
   });
 
-  // Helper to bind screen button → key events
+  // Helper to bind on-screen button → key events
   function bindPress(el, name, onUp){
     let active=false;
     const downH = e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
@@ -294,7 +293,7 @@
     el.addEventListener('pointerout', e=>{ if(active) upH(e); });
   }
 
-  // ---------- Keyboard injection ----------
+  // ---------- Key injection ----------
   const keyMap = {
     ArrowUp:    { key:'ArrowUp',   code:'ArrowUp',   keyCode:38, which:38 },
     ArrowDown:  { key:'ArrowDown', code:'ArrowDown', keyCode:40, which:40 },
@@ -384,26 +383,19 @@
   // ---------- Reset ----------
   resetBtn.addEventListener('click', () => {
     showStartBtn(true); startUsed = false;
-    // release keys & re-center
     ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(k => keyUp(k));
     centerTarget();
-
-    // hard reload the iframe to avoid stale state
     try {
       const src = frame.src;
       frame.src = 'about:blank';
       setTimeout(() => { frame.src = src; }, 30);
     } catch {}
-
     toastMsg('Game reset');
   });
 
   // Focus when ready
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
 
-  // Same-origin hint (key events need same origin)
+  // Same-origin hint
   try { void frame.contentDocument; } catch { toastMsg('Host game & wrapper on same origin for controls'); }
-
-  // helper: show/hide START
-  function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
 })();
