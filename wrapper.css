@@ -1,46 +1,99 @@
+/* =========================================================
+   Mobile-first, landscape game wrapper — FULL CSS REWRITE
+   Layers (z-index): editor 10000 > topbar 9000 > coach 8000
+                     toast 8500 > controls 6000 > stage 1
+   ========================================================= */
+
 :root{
-  /* positions (vw/vh) and scales — tuned at runtime by JS per device */
+  /* Control positions/scales (set by JS per device) */
   --pad-x: 0vw;    --pad-y: 0vh;    --pad-scale: 1.24;   --pad-opacity: 0.92;
   --start-x: 0vw;  --start-y: 0vh;  --start-scale: 1.00; --start-opacity: 0.92;
+
+  /* Safe-area (iOS notch) */
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+
+  /* Colors */
+  --bg: #000;
+  --glass: rgba(25,25,25,.85);
+  --glass-soft: rgba(25,25,25,.60);
+  --border: rgba(255,255,255,.22);
+  --ink: #e8f0f2;
+  --ink-dim: rgba(255,255,255,.85);
+
+  /* Sizing */
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+  --gap: 10px;
 }
+
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif}
 #wrap{position:fixed;inset:0}
 
-/* Gate */
-#gate{position:fixed;inset:0;display:grid;place-items:center;z-index:99999;background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.85),rgba(0,0,0,.95))}
+/* ---------------- Gate (fullscreen + landscape) ---------------- */
+#gate{
+  position:fixed; inset:0; display:grid; place-items:center; z-index:99999;
+  background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.85), rgba(0,0,0,.95));
+}
 #gate.hidden{display:none}
-.gate-card{padding:18px 22px;border-radius:16px;background:rgba(25,25,25,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.22);text-align:center}
-.btn{display:inline-grid;place-items:center;padding:12px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;user-select:none}
-.btn.ghost{background:rgba(255,255,255,.08)}
-.link{color:#cfe3ff;text-decoration:underline;opacity:.85}
-.btn:active,.btn.active{background:rgba(255,255,255,.5);border-color:#fff}
+.gate-card{
+  padding:18px 22px; border-radius:var(--radius-xl);
+  background:var(--glass-soft); backdrop-filter:blur(8px);
+  border:1px solid var(--border); text-align:center; color:var(--ink);
+}
 .gate-title{font-weight:800;margin-bottom:6px}
-.gate-sub{opacity:.85;margin-bottom:10px}
+.gate-sub{opacity:.9;margin-bottom:10px}
 .gate-actions{margin-bottom:6px}
-.gate-hint{opacity:.7;font-size:.9em}
+.gate-hint{opacity:.75;font-size:.9em}
 
-/* Stage */
-#stage{position:fixed;inset:0;background:#000}
-#gameframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+/* ---------------- Stage (game area) ---------------- */
+#stage{position:fixed; inset:0; background:#000; z-index:1}
+#gameframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#000}
 
-/* HUD (during play) */
-#topbar{position:absolute;right:10px;top:10px;display:flex;gap:8px;z-index:7}
-#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;z-index:8}
-#toast.show{opacity:1}
+/* ---------------- Buttons (global) ---------------- */
+.btn{
+  display:inline-grid; place-items:center;
+  padding:12px 20px; border-radius:var(--radius-pill);
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.12); color:#fff;
+  user-select:none; touch-action:manipulation; cursor:pointer;
+  transition:transform .06s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
+}
+.btn.ghost{background:rgba(255,255,255,.08)}
+.btn.sm{padding:8px 12px; font-size:14px}
+.btn:active,.btn.active{transform:scale(.98); background:rgba(255,255,255,.5); border-color:#fff}
+.btn[disabled]{opacity:.45; pointer-events:none}
 
-/* Controls overlay (must receive touches) */
-#controls{
-  position:fixed;left:0;right:0;bottom:0;top:0;z-index:6;pointer-events:auto;
-  touch-action:none; /* stop page scroll without killing taps */
+/* ---------------- Top HUD (always tappable) ---------------- */
+#topbar{
+  position:absolute; right:calc(10px + var(--sa-right)); top:calc(10px + var(--sa-top));
+  display:flex; gap:8px; z-index:9000; pointer-events:auto;
 }
 
-/* START button — centered by default in placement */
+/* Toast (status) */
+#toast{
+  position:absolute; left:50%; top:calc(12px + var(--sa-top)); transform:translateX(-50%);
+  background:rgba(0,0,0,.7); color:#fff; padding:8px 12px; border-radius:var(--radius-pill);
+  font-size:12px; opacity:0; transition:opacity .2s; z-index:8500; pointer-events:none;
+}
+#toast.show{opacity:1}
+
+/* ---------------- Controls overlay (touch layer) ---------------- */
+#controls{
+  position:fixed; inset:0; z-index:6000; pointer-events:auto;
+  /* stop page scroll while preserving taps/clicks */
+  touch-action:none;
+}
+
+/* START button — default centered during placement (draggable) */
 .startDock{
   position:absolute; left:50%; top:50%;
   transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(var(--start-scale));
-  transform-origin: center;
-  opacity: var(--start-opacity);
+  transform-origin: center; opacity: var(--start-opacity);
+  will-change: transform, opacity;
 }
 .startBtn{
   width: clamp(60px, 13vmin, 92px); height: clamp(60px, 13vmin, 92px);
@@ -49,13 +102,15 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Pad — circular only, bottom-right by default */
+/* Touchpad — circular, bottom-right by default (draggable) */
 .padDock{
-  position:absolute; right:14px; bottom:14px;
+  position:absolute;
+  right:calc(14px + var(--sa-right)); bottom:calc(14px + var(--sa-bottom));
   transform: translate(var(--pad-x), var(--pad-y)) scale(var(--pad-scale));
   transform-origin: bottom right; opacity: var(--pad-opacity);
+  will-change: transform, opacity;
 }
-.pad{ position:relative; width:min(54vmin, 48vw); height:min(54vmin, 48vw); }
+.pad{ position:relative; width:min(54vmin, 48vw); height:min(54vmin, 48vw) }
 .padRing{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:100%; height:100%; border-radius:50%;
@@ -67,32 +122,45 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
   width:36%; height:36%; border-radius:50%;
   background: rgba(255,255,255,.20); border:1px solid rgba(255,255,255,.35);
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
+  /* JS controls position each frame; no CSS transition here for responsiveness */
 }
 
-/* Coach HUD (minimal, never blocks dragging) */
-#coach{position:fixed; inset:0; z-index:9999; pointer-events:none;}
+/* ---------------- Coach HUD (placement helper) ---------------- */
+#coach{
+  position:fixed; inset:0; z-index:8000;
+  pointer-events:none; /* transparent by default; sections opt-in */
+}
 #coach.hidden{display:none}
+
+/* Top hint never blocks top-right buttons */
 .coachTop{
-  position:absolute; left:50%; top:12px; transform:translateX(-50%);
-  background:rgba(25,25,25,.85); color:#fff; border:1px solid rgba(255,255,255,.22);
-  padding:8px 12px; border-radius:999px; font-size:13px; pointer-events:auto;
-}
-.coachBottom{
-  position:absolute; left:50%; bottom:12px; transform:translateX(-50%);
-  display:flex; gap:10px; align-items:center; pointer-events:auto;
-  background:rgba(25,25,25,.85); color:#fff; border:1px solid rgba(255,255,255,.22);
-  padding:8px 10px; border-radius:999px;
+  position:absolute; left:50%; top:calc(12px + var(--sa-top)); transform:translateX(-50%);
+  background:var(--glass); color:#fff; border:1px solid var(--border);
+  padding:8px 12px; border-radius:var(--radius-pill); font-size:13px;
+  pointer-events:none; /* DO NOT block taps */
 }
 
-/* Centered editor */
+/* Bottom pill is tappable */
+.coachBottom{
+  position:absolute; left:50%; bottom:calc(12px + var(--sa-bottom)); transform:translateX(-50%);
+  display:flex; gap:var(--gap); align-items:center;
+  background:var(--glass); color:#fff; border:1px solid var(--border);
+  padding:8px 10px; border-radius:var(--radius-pill);
+  pointer-events:auto;
+}
+
+.link{color:#cfe3ff;text-decoration:underline;opacity:.9}
+.link:active{opacity:1}
+
+/* ---------------- Centered Editor (modal) ---------------- */
 #editorOverlay{
   position:fixed; inset:0; display:grid; place-items:center; z-index:10000;
   background: rgba(0,0,0,.45);
 }
 #editorOverlay.hidden{display:none}
 .editor{
-  width:min(560px, 94vw); padding:16px; border-radius:16px;
-  background:rgba(25,25,25,.96); color:#fff; border:1px solid rgba(255,255,255,.22);
+  width:min(560px, 94vw); padding:16px; border-radius:var(--radius-xl);
+  background:rgba(25,25,25,.96); color:#fff; border:1px solid var(--border);
   display:grid; gap:12px;
 }
 .editorTitle{font-weight:800}
@@ -100,11 +168,22 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 .editor input{width:60%}
 .editorActions{display:flex;gap:10px;justify-content:flex-end}
 
-/* While placing, show dashed outlines */
-.placing #startDock, .placing #padDock{ outline:2px dashed rgba(255,255,255,.4); border-radius:14px }
-
-/* Portrait blur (gate still blocks anyway) */
-@media (orientation:portrait){
-  #stage{filter:blur(2px);pointer-events:none}
+/* ---------------- Placement state outlines ---------------- */
+.placing #startDock, .placing #padDock{
+  outline:2px dashed rgba(255,255,255,.4);
+  border-radius:14px;
 }
+
+/* ---------------- Utilities ---------------- */
 .hidden{display:none!important}
+
+/* Portrait guard (visual) — logic handled by gate */
+@media (orientation:portrait){
+  #stage{filter:blur(2px); pointer-events:none}
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce){
+  .btn{transition:none}
+  #toast{transition:none}
+}
