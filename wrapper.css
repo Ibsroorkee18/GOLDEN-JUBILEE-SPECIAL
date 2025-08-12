@@ -1,6 +1,6 @@
 :root{
   /* positions (vw/vh) and scales */
-  --pad-x: 0vw;    --pad-y: 0vh;    --pad-scale: 1.2;    --pad-opacity: 0.9;
+  --pad-x: 0vw;    --pad-y: 0vh;    --pad-scale: 1.22;   --pad-opacity: 0.9;
   --start-x: 0vw;  --start-y: 0vh;  --start-scale: 1.0;  --start-opacity: 0.9;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -11,8 +11,8 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 #gate{position:fixed;inset:0;display:grid;place-items:center;z-index:99999;background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.85),rgba(0,0,0,.95))}
 #gate.hidden{display:none}
 .gate-card{padding:18px 22px;border-radius:16px;background:rgba(25,25,25,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.22);text-align:center}
-.btn{display:inline-grid;place-items:center;padding:12px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff}
-.btn.ghost{background:rgba(255,255,255,.08)}
+.btn{display:inline-grid;place-items:center;padding:12px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;user-select:none}
+.btn:active,.btn.active{background:rgba(255,255,255,.5);border-color:#fff}
 .gate-title{font-weight:800;margin-bottom:6px}
 .gate-sub{opacity:.85;margin-bottom:10px}
 .gate-actions{margin-bottom:6px}
@@ -23,17 +23,16 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 #gameframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
 
 /* HUD */
-#topbar{position:absolute;right:10px;top:10px;display:flex;gap:8px;z-index:5}
-.btn:active,.btn.active{background:rgba(255,255,255,.5);border-color:#fff}
-#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;z-index:6}
+#topbar{position:absolute;right:10px;top:10px;display:flex;gap:8px;z-index:6}
+#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;z-index:7}
 #toast.show{opacity:1}
 
-/* Controls overlay (always overlaying game) */
-#controls{position:fixed;left:0;right:0;bottom:0;top:0;pointer-events:none;z-index:4}
+/* Controls overlay (must receive touches) */
+#controls{position:fixed;left:0;right:0;bottom:0;top:0;pointer-events:auto;z-index:5}
 
 /* START button (left) */
 .startDock{
-  position:absolute; left:14px; bottom:14px; pointer-events:auto;
+  position:absolute; left:14px; bottom:14px;
   transform: translate(var(--start-x), var(--start-y)) scale(var(--start-scale));
   transform-origin: bottom left;
   opacity: var(--start-opacity);
@@ -47,7 +46,7 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 
 /* Pad (right) — circular only */
 .padDock{
-  position:absolute; right:14px; bottom:14px; pointer-events:auto;
+  position:absolute; right:14px; bottom:14px;
   transform: translate(var(--pad-x), var(--pad-y)) scale(var(--pad-scale));
   transform-origin: bottom right; opacity: var(--pad-opacity);
 }
@@ -78,13 +77,13 @@ html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-
 .place-card ol{margin:8px 0 12px 18px;padding:0}
 .place-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
 .hint{opacity:.75;margin-top:8px;font-size:.9em}
-#placeSetStart:disabled{opacity:.5}
+#placeSet:disabled{opacity:.5}
 
 /* Mini editors (tap control to open) */
 .miniEditor{
   position:absolute; bottom:100%; left:50%; transform:translate(-50%, -10px);
   display:grid; gap:6px; padding:10px; min-width:200px;
-  border-radius:12px; background:rgba(25,25,25,.85); color:#fff; backdrop-filter:blur(8px);
+  border-radius:12px; background:rgba(25,25,25,.92); color:#fff; backdrop-filter:blur(8px);
   border:1px solid rgba(255,255,255,.22); z-index:10;
 }
 .miniEditor label{display:flex;justify-content:space-between;gap:10px;align-items:center}
