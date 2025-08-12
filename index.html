@@ -8,19 +8,20 @@
 </head>
 <body>
   <div id="wrap">
-    <!-- Gate: MUST be fullscreen + landscape -->
+
+    <!-- Gate: must be fullscreen + landscape -->
     <div id="gate">
       <div class="gate-card">
         <div class="gate-title">Rotate & go fullscreen</div>
-        <div class="gate-sub">This game runs only in fullscreen landscape.</div>
+        <div class="gate-sub">Phone-only • fullscreen landscape required</div>
         <div class="gate-actions">
           <button id="enterFS" class="btn pill">Enter Fullscreen</button>
         </div>
-        <div class="gate-hint">If landscape lock fails, rotate your phone horizontally.</div>
+        <div class="gate-hint">If lock fails, rotate your phone horizontally.</div>
       </div>
     </div>
 
-    <!-- Game fills the screen -->
+    <!-- Game fills screen -->
     <div id="stage" aria-hidden="true">
       <div class="bezel">
         <iframe
@@ -41,23 +42,43 @@
       <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
-    <!-- Controls overlay (fullscreen + landscape only) -->
+    <!-- Controls overlay -->
     <div id="controls" aria-hidden="true" aria-label="Touch Controls">
       <div id="controlInner">
-        <!-- LEFT: small SPACE -->
+        <!-- LEFT: SPACE (START) in its own dock so users can move it -->
         <div class="leftActions">
-          <button class="btn action small A" id="spaceBtn" data-key="Space" aria-label="SPACE">SPACE</button>
+          <div id="spaceDock" class="spaceDock" data-drag="space">
+            <button class="btn action small A" id="spaceBtn" data-key="Space" aria-label="SPACE">SPACE</button>
+          </div>
         </div>
 
-        <!-- RIGHT: Touchpad (touchpad only, diagonals allowed) -->
+        <!-- RIGHT: touchpad in a movable/scalable dock -->
         <div class="rightPad">
-          <div class="padDock" id="padDock">
+          <div class="padDock" id="padDock" data-drag="pad">
             <div class="touchpad" id="touchpad">
               <div class="ring" id="ring"></div>
               <div class="knob" id="knob"></div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- First-run placement overlay (or accessible via Settings) -->
+    <div id="placement" class="hidden">
+      <div class="place-card">
+        <h3>Place your controls</h3>
+        <ol>
+          <li><b>Drag</b> the right touchpad and the left <b>START</b> button.</li>
+          <li><b>Pinch</b> the touchpad to resize. (Opacity/size also in ⚙️ Settings.)</li>
+          <li>Press <b>Save & Start</b> to play. You can adjust later via ⚙️.</li>
+        </ol>
+        <div class="place-actions">
+          <button id="placeSave" class="btn pill">Save & Start</button>
+          <button id="placeSkip" class="btn pill ghost" type="button">Skip</button>
+          <button id="placeReset" class="btn pill ghost" type="button">Defaults</button>
+        </div>
+        <p class="hint">RESET restarts the game and restores the START button.</p>
       </div>
     </div>
 
@@ -106,6 +127,21 @@
         </label>
 
         <label class="row">
+          <span>START size</span>
+          <input id="spacescale" type="range" min="0.9" max="1.4" step="0.05" />
+        </label>
+
+        <label class="row">
+          <span>START X (→/←)</span>
+          <input id="spacex" type="range" min="-30" max="30" step="1" />
+        </label>
+
+        <label class="row">
+          <span>START Y (↑/↓)</span>
+          <input id="spacey" type="range" min="-15" max="15" step="1" />
+        </label>
+
+        <label class="row">
           <span>Vibration</span>
           <input id="vibrate" type="checkbox" />
         </label>
@@ -113,10 +149,12 @@
         <div class="row buttons">
           <button class="btn pill">Close</button>
           <button id="resetPrefs" class="btn pill ghost" type="button">Reset</button>
+          <button id="adjustNow" class="btn pill" type="button">Adjust by Dragging</button>
         </div>
         <p class="hint">Keep this and your game on the same origin so input works.</p>
       </form>
     </dialog>
+
   </div>
 
   <script src="wrapper.js" defer></script>

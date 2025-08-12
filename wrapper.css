@@ -1,8 +1,8 @@
-/* Phone-first, landscape-only, fullscreen-only controls */
+/* Phone-first, landscape-only, fullscreen-only controls with drag-to-place */
 :root{
   /* tuned for thumbs */
   --ui-scale: 1.45;                 /* overlay scale */
-  --ui-opacity: 0.92;               /* overlay opacity slider target */
+  --ui-opacity: 0.92;               /* overlay opacity */
   --zone-size: min(54vmin, 52vw);   /* touchpad base size */
   --ring-size: min(44vmin, 42vw);   /* inner circle */
   --knob-size: 36%;
@@ -14,11 +14,12 @@
   --pad-offset-x: 0vw;              /* -20..20 */
   --pad-offset-y: 0vh;              /* -12..12 */
 
-  /* palette (clean, not playful) */
-  --body: #0f1115;                  /* bezel fallback bg */
-  --screen: #10161a;
-  --screen-glow: #0b1216;
+  /* START (SPACE) placement & scale */
+  --space-scale: 1;                 /* 0.9..1.4 */
+  --space-offset-x: 0vw;            /* -30..30 */
+  --space-offset-y: 0vh;            /* -15..15 */
 
+  /* palette */
   --glass: rgba(18,18,18,0.55);
   --glass-strong: rgba(18,18,18,0.75);
   --border: rgba(255,255,255,0.24);
@@ -52,13 +53,8 @@ html,body{
 
 /* Stage (game always full) */
 #stage{position:relative;overflow:hidden;background:#000}
-.bezel{
-  position:absolute; inset:0; display:grid; place-items:center; padding:0;
-  background: var(--body);
-}
-#gameframe{
-  width:100%; height:100%; border:0; background:linear-gradient(180deg,var(--screen-glow),var(--screen));
-}
+.bezel{ position:absolute; inset:0; display:grid; place-items:center; padding:0; }
+#gameframe{ width:100%; height:100%; border:0; background:#000; }
 
 /* Top bar (fullscreen only) */
 #topbar{
@@ -80,8 +76,12 @@ html,body{
   opacity: var(--ui-opacity); transition: transform .15s ease, opacity .15s ease;
 }
 
-/* Left small SPACE */
+/* LEFT START (SPACE) */
 .leftActions{ display:grid; align-items:end; }
+.spaceDock{
+  transform: translate(var(--space-offset-x), var(--space-offset-y)) scale(var(--space-scale));
+  transform-origin: bottom left;
+}
 .action.small{
   width:var(--btn-size); height:var(--btn-size);
   font-size: clamp(14px, 4.5vmin, 20px); font-weight:900; border-radius: var(--btn-radius);
@@ -89,7 +89,7 @@ html,body{
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Right touchpad (positionable + scalable) */
+/* RIGHT touchpad (positionable + scalable) */
 .rightPad{ position:relative; min-width:min(50vw, 60vmin); display:grid; justify-items:end; }
 .padDock{
   transform: translate(var(--pad-offset-x), var(--pad-offset-y)) scale(var(--pad-scale));
@@ -116,6 +116,21 @@ html,body{
   box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
+/* Placement overlay */
+#placement{
+  position:fixed; inset:0; z-index:9999; display:grid; place-items:center;
+  background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.65), rgba(0,0,0,.85));
+}
+#placement.hidden{ display:none; }
+.place-card{
+  width:min(540px, 92vw); padding:16px; border-radius:16px;
+  background:var(--glass); border:1px solid var(--border); backdrop-filter:blur(8px);
+}
+.place-card h3{ margin:0 0 8px 0 }
+.place-card ol{ margin:8px 0 12px 18px; padding:0 }
+.place-card .place-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px }
+.place-card .hint{ opacity:.75; margin-top:8px; font-size:.9em }
+
 /* Toast */
 #toast{
   position:absolute; left:50%; top:var(--safe-top); transform:translateX(-50%);
@@ -124,22 +139,13 @@ html,body{
 }
 #toast.show{opacity:1}
 
-/* Settings dialog */
-dialog#settings{
-  width:min(560px, 94vw); border:1px solid var(--border); border-radius:16px;
-  padding:16px; background:var(--glass); color:#fff; backdrop-filter:blur(8px)
-}
-dialog::backdrop{ background:rgba(0,0,0,.5) }
-#settings h3{ margin:0 0 10px 0 }
-#settings .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0 }
-#settings input[type="range"], #settings select{ width:54% }
-#settings .buttons{ justify-content:flex-end }
-#settings .btn{ padding:8px 14px }
-#settings .btn.ghost{ background:rgba(255,255,255,0.08) }
-#settings .hint{ opacity:.75; margin-top:8px; font-size:.9em }
-
-/* If portrait, blur but gate still blocks everything */
+/* Disable gameplay in portrait (gate still blocks) */
 @media (orientation:portrait){
   #stage, #controls, #topbar { filter: blur(2px); pointer-events:none; }
 }
+
 .hidden{ display:none !important; }
+
+/* Drag affordance while placing */
+[data-drag]{ cursor: grab; }
+.placing [data-drag]{ outline: 2px dashed rgba(255,255,255,0.35); }
