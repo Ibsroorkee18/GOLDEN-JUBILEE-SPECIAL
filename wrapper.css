@@ -1,151 +1,101 @@
-/* Phone-first, landscape-only, fullscreen-only controls with drag-to-place */
 :root{
-  /* tuned for thumbs */
-  --ui-scale: 1.45;                 /* overlay scale */
-  --ui-opacity: 0.92;               /* overlay opacity */
-  --zone-size: min(54vmin, 52vw);   /* touchpad base size */
-  --ring-size: min(44vmin, 42vw);   /* inner circle */
-  --knob-size: 36%;
-  --btn-size: clamp(56px, 13vmin, 84px); /* small START */
-  --btn-radius: 16px;
-
-  /* pad placement & scale */
-  --pad-scale: 1.1;                 /* 0.9..1.5 */
-  --pad-offset-x: 0vw;              /* -20..20 */
-  --pad-offset-y: 0vh;              /* -12..12 */
-
-  /* START (SPACE) placement & scale */
-  --space-scale: 1;                 /* 0.9..1.4 */
-  --space-offset-x: 0vw;            /* -30..30 */
-  --space-offset-y: 0vh;            /* -15..15 */
-
-  /* palette */
-  --glass: rgba(18,18,18,0.55);
-  --glass-strong: rgba(18,18,18,0.75);
-  --border: rgba(255,255,255,0.24);
-  --active: rgba(255,255,255,0.5);
-
-  --safe-bottom: env(safe-area-inset-bottom, 10px);
-  --safe-top: env(safe-area-inset-top, 10px);
+  /* positions (vw/vh) and scales */
+  --pad-x: 0vw;    --pad-y: 0vh;    --pad-scale: 1.2;    --pad-opacity: 0.9;
+  --start-x: 0vw;  --start-y: 0vh;  --start-scale: 1.0;  --start-opacity: 0.9;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{
-  height:100%;margin:0;overscroll-behavior:none;background:#000;color:#e8f0f2;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans,sans-serif;
-}
-#wrap{position:fixed;inset:0;display:grid;grid-template-rows:1fr auto}
+html,body{height:100%;margin:0;background:#000;color:#e8f0f2;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif}
+#wrap{position:fixed;inset:0}
 
-/* Gate (block until fullscreen + landscape) */
-#gate{
-  position:fixed; inset:0; display:grid; place-items:center; z-index:99999;
-  background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.85), rgba(0,0,0,.95));
-}
-#gate.hidden{ display:none; }
-.gate-card{padding:18px 22px;border-radius:18px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(6px);text-align:center}
+/* Gate */
+#gate{position:fixed;inset:0;display:grid;place-items:center;z-index:99999;background:radial-gradient(120vmax 120vmax at 50% 50%,rgba(0,0,0,.85),rgba(0,0,0,.95))}
+#gate.hidden{display:none}
+.gate-card{padding:18px 22px;border-radius:16px;background:rgba(25,25,25,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.22);text-align:center}
+.btn{display:inline-grid;place-items:center;padding:12px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff}
+.btn.ghost{background:rgba(255,255,255,.08)}
 .gate-title{font-weight:800;margin-bottom:6px}
 .gate-sub{opacity:.85;margin-bottom:10px}
-.gate-actions{display:flex;justify-content:center;gap:10px;margin-bottom:6px}
+.gate-actions{margin-bottom:6px}
 .gate-hint{opacity:.7;font-size:.9em}
-.btn{display:inline-grid;place-items:center;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;user-select:none}
-.btn.pill{padding:12px 20px;font-weight:700}
-.btn.ghost{background:rgba(255,255,255,0.08)}
-.btn:active,.btn.active{background:var(--active);border-color:#fff}
 
-/* Stage (game always full) */
-#stage{position:relative;overflow:hidden;background:#000}
-.bezel{ position:absolute; inset:0; display:grid; place-items:center; padding:0; }
-#gameframe{ width:100%; height:100%; border:0; background:#000; }
+/* Stage */
+#stage{position:fixed;inset:0;background:#000}
+#gameframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
 
-/* Top bar (fullscreen only) */
-#topbar{
-  position:absolute; right:10px; top:var(--safe-top);
-  display:flex; gap:10px; z-index:5;
-}
-
-/* Controls overlay */
-#controls{
-  position:fixed; left:0; right:0; bottom:0; z-index:4;
-  padding:12px 16px calc(16px + var(--safe-bottom));
-  background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.25));
-  touch-action:none;
-}
-#controlInner{
-  display:flex; align-items:flex-end; justify-content:space-between;
-  gap: clamp(14px, 4vw, 40px);
-  transform: scale(var(--ui-scale)); transform-origin: bottom center;
-  opacity: var(--ui-opacity); transition: transform .15s ease, opacity .15s ease;
-}
-
-/* LEFT START (SPACE) */
-.leftActions{ display:grid; align-items:end; }
-.spaceDock{
-  transform: translate(var(--space-offset-x), var(--space-offset-y)) scale(var(--space-scale));
-  transform-origin: bottom left;
-}
-.action.small{
-  width:var(--btn-size); height:var(--btn-size);
-  font-size: clamp(14px, 4.5vmin, 20px); font-weight:900; border-radius: var(--btn-radius);
-  background: rgba(255,255,255,0.14); border:1px solid var(--border);
-  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
-}
-
-/* RIGHT touchpad (positionable + scalable) */
-.rightPad{ position:relative; min-width:min(50vw, 60vmin); display:grid; justify-items:end; }
-.padDock{
-  transform: translate(var(--pad-offset-x), var(--pad-offset-y)) scale(var(--pad-scale));
-  transform-origin: bottom right;
-}
-.touchpad{
-  position:relative; width:var(--zone-size); height:var(--zone-size); border-radius:20px;
-  background: var(--glass-strong); border:1px solid var(--border); backdrop-filter: blur(6px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.35) inset, 0 4px 18px rgba(0,0,0,.35); overflow:hidden;
-}
-.touchpad .ring{
-  position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
-  border:1px solid var(--border); background: rgba(255,255,255,0.06);
-  left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
-}
-.touchpad .knob{
-  position:absolute; width:var(--ring-size); height:var(--ring-size); border-radius:50%;
-  left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
-}
-.touchpad .knob::after{
-  content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width: var(--knob-size); height: var(--knob-size); border-radius:50%;
-  background: rgba(255,255,255,0.14); border:1px solid var(--border);
-  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
-}
-
-/* Placement overlay */
-#placement{
-  position:fixed; inset:0; z-index:9999; display:grid; place-items:center;
-  background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.65), rgba(0,0,0,.85));
-}
-#placement.hidden{ display:none; }
-.place-card{
-  width:min(540px, 92vw); padding:16px; border-radius:16px;
-  background:var(--glass); border:1px solid var(--border); backdrop-filter:blur(8px);
-}
-.place-card h3{ margin:0 0 8px 0 }
-.place-card ol{ margin:8px 0 12px 18px; padding:0 }
-.place-card .place-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px }
-.place-card .hint{ opacity:.75; margin-top:8px; font-size:.9em }
-
-/* Toast */
-#toast{
-  position:absolute; left:50%; top:var(--safe-top); transform:translateX(-50%);
-  background:rgba(0,0,0,0.7); color:#fff; padding:8px 12px; border-radius:999px; font-size:12px;
-  opacity:0; pointer-events:none; transition:opacity .2s;
-}
+/* HUD */
+#topbar{position:absolute;right:10px;top:10px;display:flex;gap:8px;z-index:5}
+.btn:active,.btn.active{background:rgba(255,255,255,.5);border-color:#fff}
+#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;z-index:6}
 #toast.show{opacity:1}
 
-/* Disable gameplay in portrait (gate still blocks) */
-@media (orientation:portrait){
-  #stage, #controls, #topbar { filter: blur(2px); pointer-events:none; }
+/* Controls overlay (always overlaying game) */
+#controls{position:fixed;left:0;right:0;bottom:0;top:0;pointer-events:none;z-index:4}
+
+/* START button (left) */
+.startDock{
+  position:absolute; left:14px; bottom:14px; pointer-events:auto;
+  transform: translate(var(--start-x), var(--start-y)) scale(var(--start-scale));
+  transform-origin: bottom left;
+  opacity: var(--start-opacity);
+}
+.startBtn{
+  width: clamp(56px, 13vmin, 84px); height: clamp(56px, 13vmin, 84px);
+  border-radius: 14px; border:1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.16); color:#fff; font-weight:800; letter-spacing:.5px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
 }
 
-.hidden{ display:none !important; }
+/* Pad (right) — circular only */
+.padDock{
+  position:absolute; right:14px; bottom:14px; pointer-events:auto;
+  transform: translate(var(--pad-x), var(--pad-y)) scale(var(--pad-scale));
+  transform-origin: bottom right; opacity: var(--pad-opacity);
+}
+.pad{ position:relative; width:min(52vmin, 48vw); height:min(52vmin, 48vw); }
+.padRing{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:100%; height:100%; border-radius:50%;
+  border:2px solid rgba(255,255,255,.28);
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.08), rgba(255,255,255,.04));
+}
+.padKnob{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:36%; height:36%; border-radius:50%;
+  background: rgba(255,255,255,.20); border:1px solid rgba(255,255,255,.35);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset, 0 2px 8px rgba(0,0,0,.35);
+}
 
-/* Drag affordance while placing */
-[data-drag]{ cursor: grab; }
-.placing [data-drag]{ outline: 2px dashed rgba(255,255,255,0.35); }
+/* Placement overlay (always on load; no skip) */
+#placement{
+  position:fixed; inset:0; display:grid; place-items:center; z-index:9999;
+  background: radial-gradient(120vmax 120vmax at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.8));
+}
+.place-card{
+  width:min(560px, 92vw); padding:16px; border-radius:16px;
+  background:rgba(25,25,25,.6); border:1px solid rgba(255,255,255,.22); backdrop-filter:blur(8px)
+}
+.place-card h3{margin:0 0 8px 0}
+.place-card ol{margin:8px 0 12px 18px;padding:0}
+.place-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.hint{opacity:.75;margin-top:8px;font-size:.9em}
+#placeSetStart:disabled{opacity:.5}
+
+/* Mini editors (tap control to open) */
+.miniEditor{
+  position:absolute; bottom:100%; left:50%; transform:translate(-50%, -10px);
+  display:grid; gap:6px; padding:10px; min-width:200px;
+  border-radius:12px; background:rgba(25,25,25,.85); color:#fff; backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.22); z-index:10;
+}
+.miniEditor label{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.miniEditor input{width:110px}
+.miniEditor .miniClose{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.1);color:#fff}
+
+/* While placing, show dashed outlines */
+.placing #startDock, .placing #padDock{ outline:2px dashed rgba(255,255,255,.4); border-radius:14px; }
+
+/* Portrait blur (gate still blocks anyway) */
+@media (orientation:portrait){
+  #stage{filter:blur(2px);pointer-events:none}
+}
+.hidden{display:none!important}

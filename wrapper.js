@@ -1,54 +1,46 @@
 (() => {
-  // ---------- DOM ----------
+  // --- DOM ---
   const frame = document.getElementById('gameframe');
-
   const gate = document.getElementById('gate');
   const enterFS = document.getElementById('enterFS');
-
   const topbar = document.getElementById('topbar');
   const controls = document.getElementById('controls');
-  const openSettings = document.getElementById('openSettings');
-  const settingsDlg = document.getElementById('settings');
-  const resetBtn = document.getElementById('resetBtn');
-  const landscapeBtn = document.getElementById('landscape');
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const placement = document.getElementById('placement');
   const toast = document.getElementById('toast');
 
-  const spaceDock = document.getElementById('spaceDock');
-  const spaceBtn = document.getElementById('spaceBtn');
+  const landscapeBtn = document.getElementById('landscape');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const openPlacement = document.getElementById('openPlacement');
+  const resetBtn = document.getElementById('resetBtn');
+  const placeSetStart = document.getElementById('placeSetStart');
+  const placeDefaults = document.getElementById('placeDefaults');
 
+  // START
+  const startDock = document.getElementById('startDock');
+  const startBtn  = document.getElementById('startBtn');
+  const startEditor = document.getElementById('startEditor');
+  const startSize = document.getElementById('startSize');
+  const startOpacity = document.getElementById('startOpacity');
+
+  // PAD
   const padDock = document.getElementById('padDock');
-  const touchpad = document.getElementById('touchpad');
-  const ring = document.getElementById('ring');
-  const knob = document.getElementById('knob');
+  const pad = document.getElementById('pad');
+  const padRing = document.querySelector('.padRing');
+  const padKnob = document.querySelector('.padKnob');
+  const padEditor = document.getElementById('padEditor');
+  const padSize = document.getElementById('padSize');
+  const padOpacity = document.getElementById('padOpacity');
 
-  const placement = document.getElementById('placement');
-  const placeSave = document.getElementById('placeSave');
-  const placeSkip = document.getElementById('placeSkip');
-  const placeReset = document.getElementById('placeReset');
-
-  // Settings inputs
-  const snapSel = document.getElementById('snap');
-  const sensInp = document.getElementById('sensitivity');
-  const uiSizeInp = document.getElementById('uisize');
-  const uiOpacityInp = document.getElementById('uiopacity');
-  const padScaleInp = document.getElementById('padscale');
-  const padXInp = document.getElementById('padx');
-  const padYInp = document.getElementById('pady');
-  const spaceScaleInp = document.getElementById('spacescale');
-  const spaceXInp = document.getElementById('spacex');
-  const spaceYInp = document.getElementById('spacey');
-  const vibrateChk = document.getElementById('vibrate');
-  const resetPrefs = document.getElementById('resetPrefs');
-  const adjustNow = document.getElementById('adjustNow');
-
-  // ---------- Game URL ----------
+  // --- Game URL ---
   const params = new URLSearchParams(location.search);
   frame.src = params.get('src') || 'game.html';
 
-  // ---------- Helpers ----------
-  const isFullscreen = () =>
-    !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+  // --- Helpers ---
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+  const isLandscape = () => window.matchMedia('(orientation: landscape)').matches || (innerWidth > innerHeight);
+  function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 1400); }
+  function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch(e){} }
+
   async function enterFullscreen(){
     try {
       const el = document.documentElement;
@@ -63,8 +55,6 @@
       toastMsg('Landscape locked');
     } catch(e){}
   }
-  const isLandscape = () => window.matchMedia('(orientation: landscape)').matches || (innerWidth > innerHeight);
-
   function updateGate(){
     const ok = isFullscreen() && isLandscape();
     gate.classList.toggle('hidden', ok);
@@ -76,81 +66,36 @@
   document.addEventListener('fullscreenchange', updateGate);
   document.addEventListener('webkitfullscreenchange', updateGate);
 
-  function toastMsg(msg){
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(()=>toast.classList.remove('show'), 1400);
+  // Always show placement on every page load
+  let placing = false;
+  function startPlacement(){
+    placing = true;
+    document.body.classList.add('placing');
+    placement.classList.remove('hidden');
+    // show both mini editors closed initially
+    closeEditor(padEditor);
+    closeEditor(startEditor);
+    // require interaction with both before enabling SET
+    touched.pad = false; touched.start = false;
+    updateSetButton();
   }
-  function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch(e){} }
+  function endPlacement(){
+    placing = false;
+    document.body.classList.remove('placing');
+    placement.classList.add('hidden');
+    closeEditor(padEditor); closeEditor(startEditor);
+    focusGame();
+  }
+  function updateSetButton(){
+    placeSetStart.disabled = !(touched.pad && touched.start);
+  }
 
-  // ---------- Preferences ----------
-  const P = {
-    snap:        localStorage.getItem('wrap_snap') || 'eight',
-    sensitivity: parseFloat(localStorage.getItem('wrap_sens') || '1.0'),
-    uiSize:      parseFloat(localStorage.getItem('wrap_ui') || '1.45'),
-    uiOpacity:   parseFloat(localStorage.getItem('wrap_opacity') || '0.92'),
-    padScale:    parseFloat(localStorage.getItem('wrap_padscale') || '1.1'),
-    padX:        parseFloat(localStorage.getItem('wrap_padx') || '0'),
-    padY:        parseFloat(localStorage.getItem('wrap_pady') || '0'),
-    spaceScale:  parseFloat(localStorage.getItem('wrap_spacescale') || '1'),
-    spaceX:      parseFloat(localStorage.getItem('wrap_spacex') || '0'),
-    spaceY:      parseFloat(localStorage.getItem('wrap_spacey') || '0'),
-    vibrate:     localStorage.getItem('wrap_vibrate') !== '0',
-    placed:      localStorage.getItem('wrap_placed') === '1'
-  };
-  function savePrefs(){
-    localStorage.setItem('wrap_snap', P.snap);
-    localStorage.setItem('wrap_sens', String(P.sensitivity));
-    localStorage.setItem('wrap_ui', String(P.uiSize));
-    localStorage.setItem('wrap_opacity', String(P.uiOpacity));
-    localStorage.setItem('wrap_padscale', String(P.padScale));
-    localStorage.setItem('wrap_padx', String(P.padX));
-    localStorage.setItem('wrap_pady', String(P.padY));
-    localStorage.setItem('wrap_spacescale', String(P.spaceScale));
-    localStorage.setItem('wrap_spacex', String(P.spaceX));
-    localStorage.setItem('wrap_spacey', String(P.spaceY));
-    localStorage.setItem('wrap_vibrate', P.vibrate ? '1' : '0');
-  }
-  function applyPrefsToUI(){
-    // form values
-    snapSel.value = P.snap;
-    sensInp.value = String(P.sensitivity);
-    uiSizeInp.value = String(P.uiSize);
-    uiOpacityInp.value = String(P.uiOpacity);
-    padScaleInp.value = String(P.padScale);
-    padXInp.value = String(P.padX);
-    padYInp.value = String(P.padY);
-    spaceScaleInp.value = String(P.spaceScale);
-    spaceXInp.value = String(P.spaceX);
-    spaceYInp.value = String(P.spaceY);
-    vibrateChk.checked = !!P.vibrate;
-
-    // CSS vars (these lock the positions/scales)
-    document.documentElement.style.setProperty('--ui-scale', String(P.uiSize));
-    document.documentElement.style.setProperty('--ui-opacity', String(P.uiOpacity));
-    document.documentElement.style.setProperty('--pad-scale', String(P.padScale));
-    document.documentElement.style.setProperty('--pad-offset-x', P.padX + 'vw');
-    document.documentElement.style.setProperty('--pad-offset-y', P.padY + 'vh');
-    document.documentElement.style.setProperty('--space-scale', String(P.spaceScale));
-    document.documentElement.style.setProperty('--space-offset-x', P.spaceX + 'vw');
-    document.documentElement.style.setProperty('--space-offset-y', P.spaceY + 'vh');
-  }
-  function resetDefaults(){
-    P.snap='eight'; P.sensitivity=1.0; P.uiSize=1.45; P.uiOpacity=0.92;
-    P.padScale=1.1; P.padX=0; P.padY=0;
-    P.spaceScale=1.0; P.spaceX=0; P.spaceY=0;
-    P.vibrate=true;
-  }
-  applyPrefsToUI();
-
-  // ---------- Gate ----------
+  // Gate entry
   enterFS.addEventListener('click', async () => {
     await enterFullscreen();
     await tryLockLandscape();
     updateGate();
-    const forcePlace = (new URLSearchParams(location.search).get('place') === '1');
-    if (!P.placed || forcePlace) startPlacement();
+    startPlacement();  // ALWAYS on load
     focusGame();
   });
   fullscreenBtn.addEventListener('click', async () => {
@@ -161,9 +106,7 @@
   landscapeBtn.addEventListener('click', tryLockLandscape);
   updateGate();
 
-  // ---------- Key injection (blocked during placement) ----------
-  let placementActive = false;
-
+  // --- Key injection (block while placing) ---
   const keyMap = {
     ArrowUp:    { key:'ArrowUp',   code:'ArrowUp',   keyCode:38, which:38 },
     ArrowDown:  { key:'ArrowDown', code:'ArrowDown', keyCode:40, which:40 },
@@ -179,17 +122,17 @@
     to.dispatchEvent(ev);
   }
   function keyDown(name){
-    if (placementActive) return;
+    if (placing) return; // don’t send keys in placement
     const d = keyMap[name]; if(!d || down.has(name)) return;
     down.add(name);
     try {
       const doc = frame.contentDocument || frame.contentWindow.document;
       dispatch(doc,'keydown',d); dispatch(frame.contentWindow,'keydown',d);
-      if (P.vibrate && navigator.vibrate) navigator.vibrate(7);
+      if (navigator.vibrate) navigator.vibrate(6);
     } catch(e){}
   }
   function keyUp(name){
-    if (placementActive) return;
+    if (placing) return;
     const d = keyMap[name]; if(!d || !down.has(name)) return;
     down.delete(name);
     try {
@@ -198,280 +141,191 @@
     } catch(e){}
   }
 
-  // Bind START (SPACE)
-  (function bindDataKey(el){
-    const name = el.getAttribute('data-key'); let active=false;
-    const activate = e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
-    const deactivate = e=>{ if(!active) return; e && (e.preventDefault(), e.stopPropagation()); el.classList.remove('active'); active=false; keyUp(name); };
-    el.addEventListener('pointerdown', activate);
-    window.addEventListener('pointerup', deactivate);
-    window.addEventListener('pointercancel', deactivate);
-    el.addEventListener('pointerout', e=>{ if(active) deactivate(e); });
-  })(spaceBtn);
-
-  // ---------- START visibility (session-only) ----------
-  // IMPORTANT CHANGE: use sessionStorage so START is visible on every page load
-  let spaceUsed = sessionStorage.getItem('wrap_space_used') === '1';
-  function updateSpaceVisibility(){ spaceBtn.classList.toggle('hidden', spaceUsed); }
-  // Always show START on first paint of a session:
-  spaceUsed = false; sessionStorage.setItem('wrap_space_used','0'); updateSpaceVisibility();
-
-  spaceBtn.addEventListener('pointerup', () => {
-    if (!spaceUsed && !placementActive) {
-      spaceUsed = true;
-      sessionStorage.setItem('wrap_space_used','1');
-      updateSpaceVisibility();
-      toastMsg('Start hidden (use RESET to restore)');
-    }
+  // START button behavior (session-based visibility)
+  let startUsed = false;
+  function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
+  showStartBtn(true); // always show on each page load
+  bindPress(startBtn, 'Space', () => {
+    // after first press, hide START for rest of the session (until RESET)
+    if (!startUsed && !placing) { startUsed = true; showStartBtn(false); toastMsg('Start hidden (RESET to restore)'); }
   });
 
-  // ---------- Super-smooth touchpad ----------
+  // Binding helper for on-screen keys
+  function bindPress(el, name, onUp){
+    let active=false;
+    const downH = e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('active'); active=true; keyDown(name); };
+    const upH   = e=>{ if(!active) return; e && (e.preventDefault(), e.stopPropagation()); el.classList.remove('active'); active=false; keyUp(name); onUp && onUp(); };
+    el.addEventListener('pointerdown', downH);
+    window.addEventListener('pointerup', upH);
+    window.addEventListener('pointercancel', upH);
+    el.addEventListener('pointerout', e=>{ if(active) upH(e); });
+  }
+
+  // --- Circular pad joystick (fixed center) ---
   let tracking=false, pid=null;
-  let cx=0, cy=0;              // origin within pad
-  let tx=0, ty=0;              // target vector
-  let x=0,  y=0;               // filtered vector
-  let rectPad = null;
-
-  const ro = new ResizeObserver(()=>{ rectPad = touchpad.getBoundingClientRect(); });
-  ro.observe(touchpad);
-
-  function currentSmoothing(){
-    const s = P.sensitivity;
-    return Math.max(0.14, Math.min(0.34, 0.24 - (s - 1) * 0.08));
-  }
-  function currentDeadzone(){
-    const s = P.sensitivity;
-    const enter = 0.26 / Math.max(0.7, s);
-    return { enter, exit: enter * 0.72 };
-  }
-  function setOrigin(px, py){
-    if (!rectPad) rectPad = touchpad.getBoundingClientRect();
-    cx = Math.max(rectPad.left, Math.min(rectPad.right, px)) - rectPad.left;
-    cy = Math.max(rectPad.top,  Math.min(rectPad.bottom,py)) - rectPad.top;
-    const rx = (cx / rectPad.width)  * 100;
-    const ry = (cy / rectPad.height) * 100;
-    ring.style.left = rx + '%'; ring.style.top = ry + '%';
-    knob.style.left = rx + '%'; knob.style.top = ry + '%';
-  }
-  function vectorFrom(px, py){
-    if (!rectPad) rectPad = touchpad.getBoundingClientRect();
-    const OUTER = 0.90;
-    const rx = rectPad.width*0.5*OUTER, ry = rectPad.height*0.5*OUTER;
-    const dx = (px - (rectPad.left + cx)) / rx;
-    const dy = (py - (rectPad.top  + cy)) / ry;
+  let tx=0, ty=0, x=0, y=0; // target & filtered (-1..1)
+  const OUTER = 0.92;       // knob travel fraction
+  function getPadRect(){ return pad.getBoundingClientRect(); }
+  function setTargetFromEvent(e){
+    const r = getPadRect();
+    const cx = r.left + r.width/2; const cy = r.top + r.height/2;
+    let dx = (e.clientX - cx) / (r.width*0.5*OUTER);
+    let dy = (e.clientY - cy) / (r.height*0.5*OUTER);
     const mag = Math.hypot(dx,dy) || 1;
-    const nx = Math.max(-1, Math.min(1, dx / mag)) * Math.min(1, Math.abs(dx));
-    const ny = Math.max(-1, Math.min(1, dy / mag)) * Math.min(1, Math.abs(dy));
-    const scale = Math.max(0.6, Math.min(1.5, P.sensitivity));
-    return { nx: nx * Math.min(1, mag*scale), ny: ny * Math.min(1, mag*scale) };
+    dx = (dx/mag) * Math.min(1, Math.abs(dx));
+    dy = (dy/mag) * Math.min(1, Math.abs(dy));
+    const scale = 1.0; // sensitivity already tuned
+    tx = Math.max(-1, Math.min(1, dx * scale));
+    ty = Math.max(-1, Math.min(1, dy * scale));
   }
-  function setTargetFromEvent(e){ const v = vectorFrom(e.clientX, e.clientY); tx = v.nx; ty = v.ny; }
-  function centerTarget(){ tx = 0; ty = 0; }
+  function centerTarget(){ tx=0; ty=0; }
 
-  function onPadDown(e){ if(placementActive) return; tracking=true; pid=e.pointerId; setOrigin(e.clientX,e.clientY); setTargetFromEvent(e); e.preventDefault(); }
-  function onPadMove(e){ if(placementActive) return; if(!tracking || e.pointerId!==pid) return; setTargetFromEvent(e); e.preventDefault(); }
-  function onPadEnd(e){ if(placementActive) return; if(!tracking || (pid!==null && e.pointerId && e.pointerId!==pid)) return; tracking=false; pid=null; centerTarget(); e.preventDefault(); }
-  touchpad.addEventListener('pointerdown', onPadDown, {passive:false});
-  touchpad.addEventListener('pointermove', onPadMove, {passive:false});
-  touchpad.addEventListener('pointerup', onPadEnd, {passive:false});
-  touchpad.addEventListener('pointercancel', onPadEnd, {passive:false});
-  window.addEventListener('pointerup', onPadEnd, {passive:false});
-
-  function updateKeys(nx, ny){
-    if (placementActive) return;
-    const { enter } = currentDeadzone();
-    if (P.snap === 'smart'){
-      const ax = Math.abs(nx), ay = Math.abs(ny);
-      const s = (ax > ay)
-        ? { L: nx < -enter, R: nx > enter, U:false, D:false }
-        : { L:false, R:false, U: ny < -enter, D: ny > enter };
-      [['ArrowLeft','L'],['ArrowRight','R'],['ArrowUp','U'],['ArrowDown','D']]
-        .forEach(([k,c]) => { if (s[c]) keyDown(k); else keyUp(k); });
-      return;
-    }
-    if (P.snap === 'off'){
-      const exit = enter * 0.72;
-      const dir = { L:false, R:false, U:false, D:false };
-      function hyster(axisValue, posKey, negKey){
-        const posPressed = dir[posKey], negPressed = dir[negKey];
-        if (!posPressed && axisValue >  enter) { dir[posKey] = true;  keyDown(posKey); }
-        if ( posPressed && axisValue <= exit)  { dir[posKey] = false; keyUp(posKey);   }
-        if (!negPressed && axisValue < -enter) { dir[negKey] = true;  keyDown(negKey); }
-        if ( negPressed && axisValue >= -exit) { dir[negKey] = false; keyUp(negKey);   }
-      }
-      hyster(nx, 'ArrowRight', 'ArrowLeft');
-      hyster(ny, 'ArrowDown',  'ArrowUp');
-      return;
-    }
-    // default 'eight' (diagonals allowed)
-    [['ArrowLeft', nx < -enter], ['ArrowRight', nx > enter], ['ArrowUp', ny < -enter], ['ArrowDown', ny > enter]]
-      .forEach(([k,on]) => on ? keyDown(k) : keyUp(k));
-  }
+  pad.addEventListener('pointerdown', e => { if(placing) return; tracking=true; pid=e.pointerId; setTargetFromEvent(e); e.preventDefault(); });
+  pad.addEventListener('pointermove', e => { if(placing || !tracking || e.pointerId!==pid) return; setTargetFromEvent(e); e.preventDefault(); });
+  const end = e=>{ if(placing || !tracking || (pid!==null && e.pointerId && e.pointerId!==pid)) return; tracking=false; pid=null; centerTarget(); e.preventDefault(); };
+  pad.addEventListener('pointerup', end, {passive:false});
+  pad.addEventListener('pointercancel', end, {passive:false});
+  window.addEventListener('pointerup', end, {passive:false});
 
   function tick(){
-    const SMOOTH = currentSmoothing();
-    x += (tx - x) * SMOOTH;
-    y += (ty - y) * SMOOTH;
+    // smoothing
+    const SMOOTH = 0.22;
+    x += (tx - x) * SMOOTH; y += (ty - y) * SMOOTH;
 
-    const m = Math.hypot(x,y); let nx=x, ny=y;
-    if (m > 1e-6 && m > 1){ nx = x/m; ny = y/m; }
+    // clamp and move knob
+    const m = Math.hypot(x,y); const nx = m>1 ? x/m : x; const ny = m>1 ? y/m : y;
+    const r = getPadRect();
+    const px = (r.width/2) + nx * (r.width*0.5*OUTER);
+    const py = (r.height/2)+ ny * (r.height*0.5*OUTER);
+    padKnob.style.left = px + 'px'; padKnob.style.top = py + 'px';
 
-    if (!rectPad) rectPad = touchpad.getBoundingClientRect();
-    const OUTER = 0.90;
-    const rx = rectPad.width*0.5*OUTER, ry = rectPad.height*0.5*OUTER;
-    const px = (cx + nx*rx) / rectPad.width * 100;
-    const py = (cy + ny*ry) / rectPad.height * 100;
-    knob.style.left = px + '%'; knob.style.top = py + '%';
+    // keys (8-way default; diagonals allowed)
+    const TH = 0.28;
+    const L = nx < -TH, R = nx > TH, U = ny < -TH, D = ny > TH;
+    L ? keyDown('ArrowLeft')  : keyUp('ArrowLeft');
+    R ? keyDown('ArrowRight') : keyUp('ArrowRight');
+    U ? keyDown('ArrowUp')    : keyUp('ArrowUp');
+    D ? keyDown('ArrowDown')  : keyUp('ArrowDown');
 
-    updateKeys(nx, ny);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
-  // ---------- Placement mode (drag + pinch) ----------
-  let dragState = null;
-  let pinchState = null;
-  const activePointers = new Map();
-
-  function startPlacement(){
-    placementActive = true;
-    document.body.classList.add('placing');
-    placement.classList.remove('hidden');
-    // show START during placement no matter what
-    spaceUsed = false; sessionStorage.setItem('wrap_space_used','0'); updateSpaceVisibility();
-  }
-  function endPlacement(save=true){
-    placementActive = false;
-    document.body.classList.remove('placing');
-    placement.classList.add('hidden');
-    if (save){
-      P.placed = true;
-      localStorage.setItem('wrap_placed','1');
-      savePrefs();
-      applyPrefsToUI();
-      focusGame();
-      toastMsg('Controls saved');
-    }
-  }
-
-  // Only allow drag/pinch WHILE placing:
-  function onDragStart(e){
-    if (!placementActive) return;
-    const target = e.currentTarget.getAttribute('data-drag'); // 'pad' or 'space'
-    dragState = {
-      type: target, id: e.pointerId,
-      startX: e.clientX, startY: e.clientY,
-      baseX: target==='pad' ? P.padX : P.spaceX,
-      baseY: target==='pad' ? P.padY : P.spaceY
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }
-  function onDragMove(e){
-    if (!placementActive || !dragState || e.pointerId !== dragState.id) return;
-    const dx_vw = (e.clientX - dragState.startX) / window.innerWidth * 100;
-    const dy_vh = (e.clientY - dragState.startY) / window.innerHeight * 100;
-    if (dragState.type === 'pad'){
-      P.padX = clamp(dragState.baseX + dx_vw, -20, 20);
-      P.padY = clamp(dragState.baseY + dy_vh, -12, 12);
-    } else {
-      P.spaceX = clamp(dragState.baseX + dx_vw, -30, 30);
-      P.spaceY = clamp(dragState.baseY + dy_vh, -15, 15);
-    }
-    applyPrefsToUI();
-    e.preventDefault();
-  }
-  function onDragEnd(e){
-    if (!placementActive || !dragState || e.pointerId !== dragState.id) return;
-    dragState = null;
-    e.preventDefault();
-  }
-
-  function onPadPointerDown(e){
-    if (!placementActive || e.pointerType !== 'touch') return;
-    activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if (activePointers.size === 2){
-      const pts = [...activePointers.values()];
-      pinchState = { startDist: dist(pts[0], pts[1]), baseScale: P.padScale };
-    }
-  }
-  function onPadPointerMove(e){
-    if (!placementActive || !activePointers.has(e.pointerId)) return;
-    activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if (pinchState && activePointers.size === 2){
-      const pts = [...activePointers.values()];
-      const d = dist(pts[0], pts[1]);
-      const ratio = d / Math.max(1, pinchState.startDist);
-      P.padScale = clamp(pinchState.baseScale * ratio, 0.9, 1.5);
-      applyPrefsToUI();
-    }
-  }
-  function onPadPointerUp(e){
-    if (!placementActive) return;
-    activePointers.delete(e.pointerId);
-    if (activePointers.size < 2) pinchState = null;
-  }
-  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+  // --- Placement (drag + per-control mini editors) ---
+  const touched = { pad:false, start:false }; // must touch both before SET
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-  // Attach listeners (they early-return when not placing)
-  padDock.addEventListener('pointerdown', onDragStart);
-  padDock.addEventListener('pointermove', onDragMove);
-  padDock.addEventListener('pointerup', onDragEnd);
-  padDock.addEventListener('pointercancel', onDragEnd);
+  // Dragging in vw/vh units
+  function beginDrag(e){
+    if (!placing) return;
+    const type = e.currentTarget.getAttribute('data-drag'); // 'pad'|'start'
+    const id = e.pointerId;
+    const startX = e.clientX, startY = e.clientY;
+    const baseX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(type==='pad' ? '--pad-x' : '--start-x'));
+    const baseY = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(type==='pad' ? '--pad-y' : '--start-y'));
+    e.currentTarget.setPointerCapture(id);
+    function move(ev){
+      if (ev.pointerId !== id) return;
+      const dx_vw = (ev.clientX - startX) / window.innerWidth * 100;
+      const dy_vh = (ev.clientY - startY) / window.innerHeight * 100;
+      if (type==='pad'){
+        document.documentElement.style.setProperty('--pad-x', clamp(baseX + dx_vw, -20, 20) + 'vw');
+        document.documentElement.style.setProperty('--pad-y', clamp(baseY + dy_vh, -12, 12) + 'vh');
+        touched.pad = true; updateSetButton();
+      } else {
+        document.documentElement.style.setProperty('--start-x', clamp(baseX + dx_vw, -30, 30) + 'vw');
+        document.documentElement.style.setProperty('--start-y', clamp(baseY + dy_vh, -15, 15) + 'vh');
+        touched.start = true; updateSetButton();
+      }
+      ev.preventDefault();
+    }
+    function up(ev){
+      if (ev.pointerId !== id) return;
+      e.currentTarget.removeEventListener('pointermove', move);
+      e.currentTarget.removeEventListener('pointerup', up);
+      e.currentTarget.removeEventListener('pointercancel', up);
+      ev.preventDefault();
+    }
+    e.currentTarget.addEventListener('pointermove', move);
+    e.currentTarget.addEventListener('pointerup', up);
+    e.currentTarget.addEventListener('pointercancel', up);
+    e.preventDefault();
+  }
+  padDock.addEventListener('pointerdown', beginDrag);
+  startDock.addEventListener('pointerdown', beginDrag);
 
-  spaceDock.addEventListener('pointerdown', onDragStart);
-  spaceDock.addEventListener('pointermove', onDragMove);
-  spaceDock.addEventListener('pointerup', onDragEnd);
-  spaceDock.addEventListener('pointercancel', onDragEnd);
+  // Mini editors (open by tapping the control while placing)
+  function openEditor(editor, forType){
+    if (!placing) return;
+    editor.hidden = false;
+    // seed sliders from CSS vars
+    if (forType==='pad'){
+      padSize.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pad-scale')) || 1.2;
+      padOpacity.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pad-opacity')) || 0.9;
+      touched.pad = true; updateSetButton();
+    } else {
+      startSize.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--start-scale')) || 1.0;
+      startOpacity.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--start-opacity')) || 0.9;
+      touched.start = true; updateSetButton();
+    }
+  }
+  function closeEditor(editor){ editor.hidden = true; }
+  pad.addEventListener('click', () => openEditor(padEditor,'pad'));
+  startBtn.addEventListener('click', (e) => {
+    if (placing){ openEditor(startEditor,'start'); e.stopPropagation(); }
+  });
+  padEditor.querySelector('.miniClose').addEventListener('click', ()=>closeEditor(padEditor));
+  startEditor.querySelector('.miniClose').addEventListener('click', ()=>closeEditor(startEditor));
 
-  padDock.addEventListener('pointerdown', onPadPointerDown);
-  padDock.addEventListener('pointermove', onPadPointerMove);
-  padDock.addEventListener('pointerup', onPadPointerUp);
-  padDock.addEventListener('pointercancel', onPadPointerUp);
-  window.addEventListener('pointerup', onPadPointerUp);
+  // Editor sliders → CSS vars
+  padSize.addEventListener('input', e => {
+    document.documentElement.style.setProperty('--pad-scale', clamp(parseFloat(e.target.value)||1.2, 0.9, 1.5));
+  });
+  padOpacity.addEventListener('input', e => {
+    document.documentElement.style.setProperty('--pad-opacity', clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0));
+  });
+  startSize.addEventListener('input', e => {
+    document.documentElement.style.setProperty('--start-scale', clamp(parseFloat(e.target.value)||1.0, 0.9, 1.5));
+  });
+  startOpacity.addEventListener('input', e => {
+    document.documentElement.style.setProperty('--start-opacity', clamp(parseFloat(e.target.value)||0.9, 0.3, 1.0));
+  });
 
-  // Placement buttons
-  placeSave.addEventListener('click', () => endPlacement(true));
-  placeSkip.addEventListener('click', () => endPlacement(true));
-  placeReset.addEventListener('click', () => { resetDefaults(); applyPrefsToUI(); });
+  // Defaults button during placement
+  placeDefaults.addEventListener('click', () => {
+    document.documentElement.style.setProperty('--pad-x', '0vw');
+    document.documentElement.style.setProperty('--pad-y', '0vh');
+    document.documentElement.style.setProperty('--pad-scale', 1.2);
+    document.documentElement.style.setProperty('--pad-opacity', 0.9);
+    document.documentElement.style.setProperty('--start-x', '0vw');
+    document.documentElement.style.setProperty('--start-y', '0vh');
+    document.documentElement.style.setProperty('--start-scale', 1.0);
+    document.documentElement.style.setProperty('--start-opacity', 0.9);
+    touched.pad = true; touched.start = true; updateSetButton();
+  });
 
-  // Settings “Adjust by Dragging”
-  adjustNow.addEventListener('click', () => { settingsDlg.close(); startPlacement(); });
+  // SET & START: lock controls, start game
+  placeSetStart.addEventListener('click', () => {
+    if (placeSetStart.disabled) return;
+    endPlacement();
+    showStartBtn(true); // visible at first so player can start
+    toastMsg('Controls locked — tap START');
+  });
 
-  // ---------- Settings ----------
-  function saveAndApply(){ savePrefs(); applyPrefsToUI(); }
-  openSettings.addEventListener('click', () => settingsDlg.showModal());
-  settingsDlg.addEventListener('close', () => focusGame());
-  snapSel.addEventListener('change', e => { P.snap = e.target.value; savePrefs(); toastMsg('Snap: ' + P.snap); });
-  sensInp.addEventListener('input', e => { P.sensitivity = parseFloat(e.target.value||'1'); savePrefs(); });
-  uiSizeInp.addEventListener('input', e => { P.uiSize = parseFloat(e.target.value||'1.45'); saveAndApply(); });
-  uiOpacityInp.addEventListener('input', e => { P.uiOpacity = parseFloat(e.target.value||'0.92'); saveAndApply(); });
-  padScaleInp.addEventListener('input', e => { P.padScale = parseFloat(e.target.value||'1.1'); saveAndApply(); });
-  padXInp.addEventListener('input', e => { P.padX = parseFloat(e.target.value||'0'); saveAndApply(); });
-  padYInp.addEventListener('input', e => { P.padY = parseFloat(e.target.value||'0'); saveAndApply(); });
-  spaceScaleInp.addEventListener('input', e => { P.spaceScale = parseFloat(e.target.value||'1'); saveAndApply(); });
-  spaceXInp.addEventListener('input', e => { P.spaceX = parseFloat(e.target.value||'0'); saveAndApply(); });
-  spaceYInp.addEventListener('input', e => { P.spaceY = parseFloat(e.target.value||'0'); saveAndApply(); });
-  vibrateChk.addEventListener('change', e => { P.vibrate = !!e.target.checked; savePrefs(); });
-  resetPrefs.addEventListener('click', () => { resetDefaults(); saveAndApply(); toastMsg('Settings reset'); });
+  // Open placement later via gear
+  openPlacement.addEventListener('click', () => startPlacement());
 
-  // ---------- Reset game & restore START ----------
+  // --- RESET: reload game only, also restore START ---
   resetBtn.addEventListener('click', () => {
-    spaceUsed = false;
-    sessionStorage.setItem('wrap_space_used','0');
-    updateSpaceVisibility();
-
-    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(keyUp);
-    centerTarget();
-
+    showStartBtn(true); // bring back start
+    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(k => keyUp(k));
     try { const src = frame.src; frame.src = src; } catch(e){}
     toastMsg('Game reset');
   });
 
-  // Prevent page scroll while using overlay
+  // Prevent page scroll while interacting with overlay controls
   ['touchstart','touchmove','touchend'].forEach(t =>
-    controls.addEventListener(t, e => e.preventDefault(), { passive:false })
+    document.getElementById('controls').addEventListener(t, e => e.preventDefault(), { passive:false })
   );
 
   // Focus when ready
@@ -479,7 +333,4 @@
 
   // Same-origin hint (so key events reach game)
   try { void frame.contentDocument; } catch(e){ toastMsg('Host game & wrapper on same origin'); }
-
-  // Initial state
-  updateGate();
 })();

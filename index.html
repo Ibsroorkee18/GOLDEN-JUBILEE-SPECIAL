@@ -8,8 +8,7 @@
 </head>
 <body>
   <div id="wrap">
-
-    <!-- Gate: must be fullscreen + landscape -->
+    <!-- Gate: MUST be fullscreen + landscape -->
     <div id="gate">
       <div class="gate-card">
         <div class="gate-title">Rotate & go fullscreen</div>
@@ -23,138 +22,63 @@
 
     <!-- Game fills screen -->
     <div id="stage" aria-hidden="true">
-      <div class="bezel">
-        <iframe
-          id="gameframe"
-          allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write"
-          allowfullscreen
-        ></iframe>
-      </div>
+      <iframe id="gameframe" allow="autoplay; fullscreen; gamepad"></iframe>
 
-      <!-- Top-right HUD (fullscreen only) -->
+      <!-- Top-right HUD -->
       <div id="topbar">
         <button id="landscape" class="btn ghost" title="Lock landscape">⟲</button>
         <button id="fullscreenBtn" class="btn ghost" title="Toggle fullscreen">⤢</button>
-        <button id="openSettings" class="btn ghost" title="Settings">⚙️</button>
+        <button id="openPlacement" class="btn ghost" title="Adjust controls">⚙️</button>
         <button id="resetBtn" class="btn ghost" title="Reset game & restore START">RESET</button>
       </div>
 
       <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
-    <!-- Controls overlay -->
+    <!-- Controls overlay (locked during play) -->
     <div id="controls" aria-hidden="true" aria-label="Touch Controls">
-      <div id="controlInner">
-        <!-- LEFT: SPACE (START) in its own dock so users can move it -->
-        <div class="leftActions">
-          <div id="spaceDock" class="spaceDock" data-drag="space">
-            <button class="btn action small A" id="spaceBtn" data-key="Space" aria-label="SPACE">SPACE</button>
-          </div>
+      <!-- START (SPACE) — movable dock (left by default) -->
+      <div id="startDock" class="startDock" data-drag="start">
+        <button id="startBtn" class="startBtn" data-key="Space">START</button>
+        <!-- mini editor -->
+        <div class="miniEditor" id="startEditor" hidden>
+          <label>Size <input id="startSize" type="range" min="0.9" max="1.5" step="0.05"></label>
+          <label>Opacity <input id="startOpacity" type="range" min="0.3" max="1.0" step="0.05"></label>
+          <button class="miniClose">Done</button>
         </div>
+      </div>
 
-        <!-- RIGHT: touchpad in a movable/scalable dock -->
-        <div class="rightPad">
-          <div class="padDock" id="padDock" data-drag="pad">
-            <div class="touchpad" id="touchpad">
-              <div class="ring" id="ring"></div>
-              <div class="knob" id="knob"></div>
-            </div>
-          </div>
+      <!-- Circular touchpad — movable/resizeable -->
+      <div id="padDock" class="padDock" data-drag="pad">
+        <div id="pad" class="pad" aria-label="Touchpad">
+          <div class="padRing"></div>
+          <div class="padKnob"></div>
+        </div>
+        <!-- mini editor -->
+        <div class="miniEditor" id="padEditor" hidden>
+          <label>Size <input id="padSize" type="range" min="0.9" max="1.5" step="0.05"></label>
+          <label>Opacity <input id="padOpacity" type="range" min="0.3" max="1.0" step="0.05"></label>
+          <button class="miniClose">Done</button>
         </div>
       </div>
     </div>
 
-    <!-- First-run placement overlay (or accessible via Settings) -->
-    <div id="placement" class="hidden">
+    <!-- Placement overlay (ALWAYS on page load; forced before play) -->
+    <div id="placement">
       <div class="place-card">
         <h3>Place your controls</h3>
         <ol>
-          <li><b>Drag</b> the right touchpad and the left <b>START</b> button.</li>
-          <li><b>Pinch</b> the touchpad to resize. (Opacity/size also in ⚙️ Settings.)</li>
-          <li>Press <b>Save & Start</b> to play. You can adjust later via ⚙️.</li>
+          <li><b>Drag</b> the round touchpad and the <b>START</b> button.</li>
+          <li><b>Tap</b> a control to adjust <b>size</b> & <b>opacity</b>, then tap <b>Done</b>.</li>
+          <li>When ready, tap <b>SET & START</b>. You can re-open this anytime (⚙️).</li>
         </ol>
         <div class="place-actions">
-          <button id="placeSave" class="btn pill">Save & Start</button>
-          <button id="placeSkip" class="btn pill ghost" type="button">Skip</button>
-          <button id="placeReset" class="btn pill ghost" type="button">Defaults</button>
+          <button id="placeSetStart" class="btn pill" disabled>SET & START</button>
+          <button id="placeDefaults" class="btn pill ghost" type="button">Defaults</button>
         </div>
-        <p class="hint">RESET restarts the game and restores the START button.</p>
+        <p class="hint">This setup shows on every reload. RESET only restarts the game.</p>
       </div>
     </div>
-
-    <!-- Settings -->
-    <dialog id="settings">
-      <form method="dialog">
-        <h3>Controls</h3>
-
-        <label class="row">
-          <span>Snap</span>
-          <select id="snap">
-            <option value="eight">8-way (diagonals) — default</option>
-            <option value="smart">Smart (dominant axis)</option>
-            <option value="off">Off (free + hysteresis)</option>
-          </select>
-        </label>
-
-        <label class="row">
-          <span>Sensitivity</span>
-          <input id="sensitivity" type="range" min="0.6" max="1.5" step="0.05" />
-        </label>
-
-        <label class="row">
-          <span>UI opacity</span>
-          <input id="uiopacity" type="range" min="0.4" max="1.0" step="0.05" />
-        </label>
-
-        <label class="row">
-          <span>UI size</span>
-          <input id="uisize" type="range" min="1.0" max="1.8" step="0.05" />
-        </label>
-
-        <label class="row">
-          <span>Pad size</span>
-          <input id="padscale" type="range" min="0.9" max="1.5" step="0.05" />
-        </label>
-
-        <label class="row">
-          <span>Pad X (→/←)</span>
-          <input id="padx" type="range" min="-20" max="20" step="1" />
-        </label>
-
-        <label class="row">
-          <span>Pad Y (↑/↓)</span>
-          <input id="pady" type="range" min="-12" max="12" step="1" />
-        </label>
-
-        <label class="row">
-          <span>START size</span>
-          <input id="spacescale" type="range" min="0.9" max="1.4" step="0.05" />
-        </label>
-
-        <label class="row">
-          <span>START X (→/←)</span>
-          <input id="spacex" type="range" min="-30" max="30" step="1" />
-        </label>
-
-        <label class="row">
-          <span>START Y (↑/↓)</span>
-          <input id="spacey" type="range" min="-15" max="15" step="1" />
-        </label>
-
-        <label class="row">
-          <span>Vibration</span>
-          <input id="vibrate" type="checkbox" />
-        </label>
-
-        <div class="row buttons">
-          <button class="btn pill">Close</button>
-          <button id="resetPrefs" class="btn pill ghost" type="button">Reset</button>
-          <button id="adjustNow" class="btn pill" type="button">Adjust by Dragging</button>
-        </div>
-        <p class="hint">Keep this and your game on the same origin so input works.</p>
-      </form>
-    </dialog>
-
   </div>
 
   <script src="wrapper.js" defer></script>
