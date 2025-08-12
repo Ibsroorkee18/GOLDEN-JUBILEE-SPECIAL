@@ -6,6 +6,7 @@
   const topbar = document.getElementById('topbar');
   const controls = document.getElementById('controls');
   const toast = document.getElementById('toast');
+
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   const landscapeBtn = document.getElementById('landscape');
   const openPlacement = document.getElementById('openPlacement');
@@ -40,7 +41,14 @@
   function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 1400); }
   function focusGame(){ try { frame.focus(); frame.contentWindow?.focus(); } catch{} }
   function showStartBtn(show){ startBtn.classList.toggle('hidden', !show); }
-  let startUsed = false;
+
+  // One-tap helper: de-dupe pointerup/click on mobile
+  function tap(el, fn){
+    let last = 0;
+    const h = (e) => { const now = Date.now(); if (now - last < 250) { e.preventDefault(); return; } last = now; e.preventDefault(); fn(e); };
+    el.addEventListener('pointerup', h, {passive:false});
+    el.addEventListener('click', h, {passive:false});
+  }
 
   // Device tuning
   (function tuneDefaults(){
@@ -56,7 +64,7 @@
   // Gate
   const isFS = () => !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
   const isLand = () => matchMedia('(orientation: landscape)').matches || (innerWidth > innerHeight);
-  async function enterFullscreen(){ try{ const el=document.documentElement; if(el.requestFullscreen) await el.requestFullscreen(); else if(el.webkitRequestFullscreen) await el.webkitRequestFullscreen(); }catch{} }
+  async function enterFullscreen(){ try{ const el=document.documentElement; if (el.requestFullscreen) await el.requestFullscreen(); else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen(); }catch{} }
   async function lockLandscape(){ try{ if(!isFS()) await enterFullscreen(); await screen.orientation?.lock?.('landscape'); toastMsg('Landscape locked'); }catch{} }
   function updateGate(){
     const ok = isFS() && isLand();
@@ -70,22 +78,27 @@
   document.addEventListener('webkitfullscreenchange', updateGate);
   updateGate();
 
-  enterFS.addEventListener('click', async () => {
-    await enterFullscreen(); await lockLandscape(); updateGate();
-    startPlacement();
-    focusGame();
-  });
-  fullscreenBtn.addEventListener('click', async () => {
+  tap(enterFS, async () => { await enterFullscreen(); await lockLandscape(); updateGate(); startPlacement(); focusGame(); });
+
+  // Topbar buttons — now rock-solid taps
+  tap(fullscreenBtn, async () => {
     if (isFS()) { try { await document.exitFullscreen?.(); } catch{} }
     else { await enterFullscreen(); }
     updateGate();
   });
-  landscapeBtn.addEventListener('click', lockLandscape);
+  tap(landscapeBtn, lockLandscape);
+  tap(openPlacement, () => startPlacement());
+  tap(resetBtn, () => {
+    showStartBtn(true); startUsed = false;
+    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(k => keyUp(k));
+    try { const src = frame.src; frame.src = 'about:blank'; setTimeout(() => { frame.src = src; }, 30); } catch{}
+    toastMsg('Game reset');
+  });
 
-  // If already FS+landscape at load, auto open placement
+  // Auto-open placement if already FS+landscape
   if (isFS() && isLand()) startPlacement();
 
-  // Placement flow (START shown during placement so you can move it)
+  // Placement flow (START visible so you can move it)
   let placing = false;
   const setFlags = { pad:false, start:false };
   function markTouched(type){ setFlags[type] = true; placeSet.disabled = !(setFlags.pad && setFlags.start); }
@@ -95,7 +108,7 @@
     placing = true;
     document.body.classList.add('placing');
     coach.classList.remove('hidden');
-    showStartBtn(true);           // START visible in center during placement
+    showStartBtn(true); // visible in center during placement
     setFlags.pad = false; setFlags.start = false;
     placeSet.disabled = true;
   }
@@ -104,29 +117,28 @@
     document.body.classList.remove('placing');
     coach.classList.add('hidden');
     closeEditor();
-    showStartBtn(true);           // reveal START to press after SET
+    showStartBtn(true); // press after SET
     focusGame();
   }
 
-  // Defaults & Start anyway
-  placeDefaults.addEventListener('click', () => {
+  tap(placeDefaults, () => {
     css('--pad-x','0vw'); css('--pad-y','0vh'); css('--pad-scale',1.24); css('--pad-opacity',0.92);
     css('--start-x','0vw'); css('--start-y','0vh'); css('--start-scale',1.00); css('--start-opacity',0.92);
     markTouched('pad'); markTouched('start');
   });
-  forceStart.addEventListener('click', () => { endPlacement(); toastMsg('Controls set — press START'); });
-  placeSet.addEventListener('click', () => {
+  tap(forceStart, () => { endPlacement(); toastMsg('Controls set — press START'); });
+  tap(placeSet, () => {
     if (placeSet.disabled){ toastMsg('Drag each control or edit them first'); return; }
     endPlacement();
     toastMsg('Controls set — press START');
   });
 
-  // Drag controls (bind to docks and the actual elements)
-  let suppressClickUntil = 0; // prevents accidental editor-open after a drag
+  // Drag controls
+  let suppressClickUntil = 0;
   function beginDrag(e){
     if (!placing) return;
-    const typeAttr = e.currentTarget.getAttribute('data-drag');
-    const type = typeAttr || (e.currentTarget===startBtn ? 'start' : (e.currentTarget===pad ? 'pad' : null));
+    const tAttr = e.currentTarget.getAttribute('data-drag');
+    const type = tAttr || (e.currentTarget===startBtn ? 'start' : (e.currentTarget===pad ? 'pad' : null));
     if (!type) return;
 
     const id = e.pointerId;
@@ -140,7 +152,7 @@
     function move(ev){
       if (ev.pointerId !== id) return;
       const dx = ev.clientX - sX, dy = ev.clientY - sY;
-      if (!moved && (dx*dx + dy*dy) > 9) moved = true; // >3px
+      if (!moved && (dx*dx + dy*dy) > 9) moved = true;
       const dx_vw = dx / innerWidth * 100;
       const dy_vh = dy / innerHeight * 100;
       if (type==='pad'){ css('--pad-x', clamp(baseX + dx_vw, -22, 22) + 'vw'); css('--pad-y', clamp(baseY + dy_vh, -14, 14) + 'vh'); markTouched('pad'); }
@@ -149,7 +161,7 @@
     }
     function up(ev){
       if (ev.pointerId !== id) return;
-      if (moved) suppressClickUntil = Date.now() + 250; // block the "click" that follows a drag
+      if (moved) suppressClickUntil = Date.now() + 250;
       e.currentTarget.removeEventListener('pointermove', move);
       e.currentTarget.removeEventListener('pointerup', up);
       e.currentTarget.removeEventListener('pointercancel', up);
@@ -165,11 +177,11 @@
   startDock.addEventListener('pointerdown', beginDrag, {passive:false});
   startBtn.addEventListener('pointerdown', beginDrag, {passive:false});
 
-  // Editor (tap a control while placing)
+  // Editor
   let editing = null; let prev = null;
   function openEditor(type){
     if (!placing) return;
-    if (Date.now() < suppressClickUntil) return; // ignore click right after a drag
+    if (Date.now() < suppressClickUntil) return;
     editing = type;
     editorTitle.textContent = type === 'pad' ? 'Edit Touchpad' : 'Edit START';
     prev = { scale: getCSSf(type==='pad'?'--pad-scale':'--start-scale'), opacity: getCSSf(type==='pad'?'--pad-opacity':'--start-opacity') };
@@ -178,19 +190,22 @@
     editorOverlay.classList.remove('hidden');
   }
   function closeEditor(){ editorOverlay.classList.add('hidden'); editing = null; }
+
   pad.addEventListener('click', () => openEditor('pad'));
   startBtn.addEventListener('click', (e) => { if (placing){ openEditor('start'); e.stopPropagation(); } });
 
   editSize.addEventListener('input', e => { const v = clamp(parseFloat(e.target.value)||1, 0.9, 1.7); if (editing==='pad') css('--pad-scale', v); else if (editing==='start') css('--start-scale', v); });
   editOpacity.addEventListener('input', e => { const v = clamp(parseFloat(e.target.value)||0.92, 0.25, 1.0); if (editing==='pad') css('--pad-opacity', v); else if (editing==='start') css('--start-opacity', v); });
-  editorDone.addEventListener('click', () => { if (editing) markTouched(editing); closeEditor(); });
-  editorCancel.addEventListener('click', () => {
+
+  tap(editorDone, () => { if (editing) markTouched(editing); closeEditor(); });
+  tap(editorCancel, () => {
     if (editing==='pad'){ css('--pad-scale', prev?.scale??1.24); css('--pad-opacity', prev?.opacity??0.92); }
     else if (editing==='start'){ css('--start-scale', prev?.scale??1.00); css('--start-opacity', prev?.opacity??0.92); }
     closeEditor();
   });
 
   // START (Space)
+  let startUsed = false;
   bindPress(startBtn, 'Space', () => {
     if (!placing && !startUsed) { startUsed = true; showStartBtn(false); toastMsg('Start hidden (RESET to restore)'); }
   });
@@ -233,19 +248,7 @@
   function tick(){ const SMOOTH=0.22; x+=(tx-x)*SMOOTH; y+=(ty-y)*SMOOTH; const m=Math.hypot(x,y); const nx=m>1?x/m:x, ny=m>1?y/m:y; moveKnob(nx,ny); const TH=baseTH; const L=nx<-TH, R=nx>TH, U=ny<-TH, D=ny>TH; L?keyDown('ArrowLeft'):keyUp('ArrowLeft'); R?keyDown('ArrowRight'):keyUp('ArrowRight'); U?keyDown('ArrowUp'):keyUp('ArrowUp'); D?keyDown('ArrowDown'):keyUp('ArrowDown'); requestAnimationFrame(tick); }
   requestAnimationFrame(tick);
 
-  // Reset
-  resetBtn.addEventListener('click', () => {
-    showStartBtn(true); startUsed = false;
-    ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].forEach(k => keyUp(k));
-    centerTarget();
-    try { const src = frame.src; frame.src = 'about:blank'; setTimeout(() => { frame.src = src; }, 30); } catch{}
-    toastMsg('Game reset');
-  });
-
-  // Re-open placement any time
-  openPlacement.addEventListener('click', () => startPlacement());
+  // Focus hint & same-origin
   frame.addEventListener('load', () => setTimeout(focusGame, 60));
-
-  // Same-origin hint for key events
   try { void frame.contentDocument; } catch { toastMsg('Host game & wrapper on same origin for controls'); }
 })();

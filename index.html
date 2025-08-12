@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <title>Play</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <link rel="stylesheet" href="wrapper.css" />
+  <link rel="stylesheet" href="wrapper.css?v=9" />
 </head>
 <body>
   <div id="wrap">
-    <!-- Gate: MUST be fullscreen + landscape -->
+    <!-- Gate -->
     <div id="gate">
       <div class="gate-card">
         <div class="gate-title">Rotate & go fullscreen</div>
@@ -20,29 +20,19 @@
       </div>
     </div>
 
-    <!-- Game fills screen -->
+    <!-- Game surface -->
     <div id="stage" aria-hidden="true">
       <iframe id="gameframe" allow="autoplay; fullscreen; gamepad"></iframe>
-
-      <!-- Top-right HUD (during play) -->
-      <div id="topbar">
-        <button id="landscape" class="btn" title="Lock landscape">⟲</button>
-        <button id="fullscreenBtn" class="btn" title="Fullscreen">⤢</button>
-        <button id="openPlacement" class="btn" title="Adjust controls">⚙️</button>
-        <button id="resetBtn" class="btn" title="Reset game & restore START">RESET</button>
-      </div>
-
       <div id="toast" role="status" aria-live="polite"></div>
     </div>
 
-    <!-- Controls overlay (always on top of the game) -->
+    <!-- Controls overlay -->
     <div id="controls" aria-hidden="true" aria-label="Touch Controls">
-      <!-- START (SPACE) — starts centered by default -->
+      <!-- START (Space) — centered by default -->
       <div id="startDock" class="startDock" data-drag="start">
         <button id="startBtn" class="startBtn" data-key="Space">START</button>
       </div>
-
-      <!-- Circular touchpad — bottom right by default -->
+      <!-- Circular touchpad — bottom-right by default -->
       <div id="padDock" class="padDock" data-drag="pad">
         <div id="pad" class="pad" aria-label="Touchpad">
           <div class="padRing"></div>
@@ -51,7 +41,15 @@
       </div>
     </div>
 
-    <!-- Placement HUD (minimal, non-blocking) -->
+    <!-- Top bar (NOW OUTSIDE #stage so it’s above controls) -->
+    <div id="topbar">
+      <button id="landscape" class="btn" title="Lock landscape">⟲</button>
+      <button id="fullscreenBtn" class="btn" title="Fullscreen">⤢</button>
+      <button id="openPlacement" class="btn" title="Adjust controls">⚙️</button>
+      <button id="resetBtn" class="btn" title="Reset game & restore START">RESET</button>
+    </div>
+
+    <!-- Coach HUD (placement helper) -->
     <div id="coach" class="hidden">
       <div class="coachTop">Drag <b>START</b> (center) & <b>Touchpad</b>. Tap a control to edit size/opacity.</div>
       <div class="coachBottom">
@@ -73,9 +71,8 @@
         </div>
       </div>
     </div>
-
   </div>
 
-  <script src="wrapper.js" defer></script>
+  <script src="wrapper.js?v=9" defer></script>
 </body>
 </html>
